@@ -25,9 +25,12 @@
     </div>
     
     <div id="debug"></div>
-    <div id="content" style="min-height:70vh;max-height:80vh;overflow: auto;">
-        <div id="table-profit"></div>
-    </div>
+    <div id="table-range" style="margin-bottom:1rem" ></div>
+    <div id="table-profit"></div>
+
+    <!-- <div id="content" >
+       
+    </div> -->
 
     <div id="toast">
     </div>  
@@ -47,13 +50,13 @@
 
         // !!! don`t need to fill forms --> have default settings obj (for testing)
         btn_calculate.onclick = (ev)=>{
-
             let data = {}
                 if(Object.keys(window.DATA_SETTINGS).length >= 3 &&  window.DATA_SETTINGS.timeframe !="" && Object.keys(window.CONFIG_SETTINGS).length >= 5){
                     ev.target.disabled = true
                    data = { dataSettings: window.DATA_SETTINGS, configSettings:window.CONFIG_SETTINGS}
-                    
+                   console.log("START_CALCULATE")
                    window.tableProfit.set("fullData" ,  [])
+                   window.tableRanges.set("resultFull" ,  []) 
                     fetch("/calculate", 
                     {
                         method:"POST", 
@@ -65,11 +68,33 @@
                             return response.json();
                         })
                         .then((data) => {
-                            window.tableProfit.set("fullData" ,  data)
+                            console.log("FULL_DATA",data)
+                            window.tableProfit.set("fullData" ,  data.results)
                             window.tableProfit.update("@global")
                             ev.target.disabled = false
+
+
+    // BUILD PARTIAL OBJECT
+                            let partialRange = data.partialRange;
+                            let partialResultAllInstruments = data.partialResult
+                            let partialResultOutput = {}
+                           
+                          
+
+                            function getOccurrence(array, value) {
+                                var count = 0;
+                                array.forEach((v) => (v === value && count++));
+                                return count;
+                            }
+
+                            console.log("RESULT_LAST", partialResultOutput)
+                            window.tableRanges.set("resultFull" ,  partialResultOutput);
+                                 window.tableRanges.set("requestResultBeforeModifyFull", partialResultAllInstruments)
+                            window.tableRanges.set("requestResultBeforeModifyPartial" ,  partialResultAllInstruments)
+                       
+                 
+                          //  console.log("BUILDED_OBJECT", buildedObject)
                         });
-            
                 }
                 else{
 
@@ -101,16 +126,246 @@ let rangeAJV = {
     items:[{type:"number", minimum: 0}]
 }
 
+
+window.tableRanges = new Ractive({
+    el : "#table-range", 
+    data : { resultFull : undefined ,  requestResultBeforeModifyPartial : undefined ,    result : undefined , isVisible : true , percent : 20 ,  percentArray : [
+            5,
+            10,
+            15,
+            20,
+            25,
+            30,
+            35,
+            40,
+            45,
+            50,
+            55,
+            60,
+            65,
+            70,
+            75,
+            80,
+            85,
+            90,
+            95,100
+        ] },
+    template : `
+  
+    {{#if resultFull}}
+    <div class="border border-3  border-primary"style="padding:1rem">
+        <div class="shadow p-3 mb-5 bg-body-tertiary rounded" style="text-align:center"> Table Ranges </div>
+        <div class="shadow-sm p-3 mb-5 bg-body-tertiary rounded"><h4>Info:</h4>
+            <strong> Total Ranges : {{Object.keys(result).length}} </strong>  ,
+            <strong> Slice Range :   {{@global.DATA_SETTINGS.slice_ranges}} </strong> ,
+            <strong> Best Percent :   {{percent}} </strong> ,
+            <strong> Variants : {{result.1.results.length}} </strong> 
+        </div>
+        
+    <button on-click="@this.switchTable()" style="width:100%" type="button" class="btn btn-success">{{#if isVisible }} Hide {{else}}  Show {{/if}} table</button>
+    {{#if isVisible}}
+    <div>Instrument </div>
+    <select on-change="@this.selectChanged(@event)" class="form-select" aria-label="Default select example">
+        {{#each Object.keys(resultFull) }}
+            <option value={{this}} >{{this}}</option>
+        {{/each}}
+    </select>
+
+    <div>Best Percent(%) </div>
+    <select  class="form-select" aria-label="Default select example" value={{percent}}>
+        {{#each percentArray }}
+            <option value={{this}}>{{this}}</option>
+        {{/each}}
+    </select>   
+
+
+
+    <table class="table  table-bordered  table-striped align-middle " >  
+        <thead class="table-light">
+            <tr>
+                <th scope="col">Range ID + Date  </th>
+                <th scope="col">Bars Close</th>
+                <th scope="col">Bars Close Reversal</th>
+                <th scope="col">Bars Ignore Open</th>
+                <th scope="col">Bars Ignore Close</th>
+                <th scope="col">Profit(%)</th>
+                <th scope="col">Best Result in range</th>
+                <th scope="col">Average Profit in range </th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#each Object.keys(result) }}
+                <tr>
+                    <!-- MAXIMIZE HERE -->
+                    <td> <strong> ID : {{this}} </strong> <div> <strong> START DATE : </strong>  {{result[this].results[0].startDate }} </div>   <div> <strong>  END DATE : </strong>  {{result[this].results[0].finishDate }} </div>  <div> <strong>  BARS : {{result[this].results[0].bars }}  </strong>   </div>       </td>
+                    <td>{{#each result[this].resultArrayBarsClose }} <div> {{this.key}} - {{this.valuePercentage}} % </div> {{/each}}</td>
+                    <td>{{#each result[this].resultArrayBarsCloseReversal }} <div> {{this.key}} - {{this.valuePercentage}} % </div> {{/each}}  </td>
+                    <td>{{#each result[this].resultArrayBarsIgnore }} <div> {{this.key}} - {{this.valuePercentage}} % </div> {{/each}}</td>
+                    <td>{{#each result[this].resultArrayBarsIgnoreClose }} <div> {{this.key}} - {{this.valuePercentage}} % </div>{{/each}}</td>
+                    <td>{{#each result[this].resultArrayProfitPercentage }} <div> {{this.key}} - {{this.valuePercentage}} % </div>{{/each}}</td>
+                    <td>{{#each result[this].results[0] }} <div>{{@key}} : {{this }} </div> {{/each}} </td>
+                    <td style="{{#if @this.countAverage(result[this].results) < 0 }} background-color:red {{/if}}" >{{@this.countAverage(result[this].results) }}  </td>
+                </tr> 
+            {{/each}}
+        </tbody>
+    </table>
+    {{/if}}
+    </div>
+    {{/if}}
+
+                `, 
+                switchTable : function() {
+                    this.set("isVisible" ,  !this.get("isVisible"))
+                },
+                selectChanged : function(event){
+                    console.log("SELECTED CHANGED", event.target.value);
+                    this.set("selectedInstrument" , event.target.value);
+                    this.set("result", this.get("resultFull")[event.target.value])
+                },
+  
+                countAverage : function(arr)
+                {
+                    let arrayProfit =  arr.map(el=>el.profit)
+                    const average = arrayProfit.reduce((a, b) => a + b) ;
+                    return Math.floor( average / arr.length )
+                },
+                onrender : function () {
+                    this.observe("resultFull" ,  (newValue ,  oldValue)=>{
+                        let selectedInstrument =  this.get("selectedInstrument")
+                        if(selectedInstrument && newValue[selectedInstrument] )
+                        {
+                   
+                        }
+                        else {
+                            selectedInstrument = Object.keys(newValue)[0];
+                            this.set("selectedInstrument", selectedInstrument)
+                        }
+
+             
+                        this.set("result", newValue[selectedInstrument])
+                         
+                    })
+
+
+                    function countAndTakeBestPercentage (partialResultAllInstruments , fullResult , percent  ) {
+                        let partialResultOutput = {}
+
+                        
+                        function getOccurrence(array, value) {
+                            var count = 0;
+                            array.forEach((v) => (v === value && count++));
+                            return count;
+                        }
+
+
+                        Object.keys(partialResultAllInstruments).forEach(instrument => {
+                            let partialResults = partialResultAllInstruments[instrument];
+                            let buildedObject = {};
+
+                            // BUILD FOR ALL RANGE 
+                            buildedObject["all"] = {
+                                results: fullResult[instrument]
+                            }
+
+                            partialResults.forEach(part => {
+                                if (buildedObject[part.id]) {
+                                    buildedObject[part.id].results.push(part.result)
+                                }
+                                else {
+                                    buildedObject[part.id] = {
+                                        results: [part.result]
+                                    }
+                                }
+                            })
+
+                            // maximize
+                            Object.keys(buildedObject).forEach(obj => {
+                                buildedObject[obj].results = buildedObject[obj].results.sort((a, b) => a.profit - b.profit).reverse()
+                                // take top 20 percentage
+                                if (buildedObject[obj].results.length > 10) {
+                                    let percentageToTake = percent;
+                                    let countToTake = Math.floor(buildedObject[obj].results.length/100 * percentageToTake)
+                                    buildedObject[obj].results =  buildedObject[obj].results.slice(0 ,  countToTake)
+                                }
+
+                                let arrayBarsClose = buildedObject[obj].results.map(el => el.barsClose)
+                                let arrayBarsCloseReversal = buildedObject[obj].results.map(el => el.barsCloseReversal)
+                                let arrayBarsIgnore = buildedObject[obj].results.map(el => el.barsIgnore)
+                                let arrayBarsIgnoreClose = buildedObject[obj].results.map(el => el.barsIgnoreClose)
+                                let arrayProfitPercentage = buildedObject[obj].results.map(el => el.profitPercantage)
+
+                                let setArrayBarsClose = Array.from(new Set(arrayBarsClose));
+                                let setArrayBarsCloseReversal = Array.from(new Set(arrayBarsCloseReversal));
+                                let setArrayBarsIgnore = Array.from(new Set(arrayBarsIgnore));
+                                let setArrayBarsIgnoreClose = Array.from(new Set(arrayBarsIgnoreClose));
+                                let setArrayProfitPercentage = Array.from(new Set(arrayProfitPercentage));
+
+                                let resultArrayBarsClose = setArrayBarsClose.map(el => { return { value: getOccurrence(arrayBarsClose, el), key: el, valuePercentage: Math.floor(getOccurrence(arrayBarsClose, el) / arrayBarsClose.length * 100) } })
+                                let resultArrayBarsCloseReversal = setArrayBarsCloseReversal.map(el => { return { value: getOccurrence(arrayBarsCloseReversal, el), key: el, valuePercentage: Math.floor(getOccurrence(arrayBarsCloseReversal, el) / arrayBarsCloseReversal.length * 100) } })
+                                let resultArrayBarsIgnore = setArrayBarsIgnore.map(el => { return { value: getOccurrence(arrayBarsIgnore, el), key: el, valuePercentage: Math.floor(getOccurrence(arrayBarsIgnore, el) / arrayBarsIgnore.length * 100) } })
+                                let resultArrayBarsIgnoreClose = setArrayBarsIgnoreClose.map(el => { return { value: getOccurrence(arrayBarsIgnoreClose, el), key: el, valuePercentage: Math.floor(getOccurrence(arrayBarsIgnoreClose, el) / arrayBarsIgnoreClose.length * 100) } })
+                                let resultArrayProfitPercentage = setArrayProfitPercentage.map(el => { return { value: getOccurrence(arrayProfitPercentage, el), key: el, valuePercentage: Math.floor(getOccurrence(arrayProfitPercentage, el) / arrayProfitPercentage.length * 100) } })
+
+                                console.log("RESULT", resultArrayBarsClose, resultArrayBarsCloseReversal, resultArrayBarsIgnore, resultArrayBarsIgnoreClose, resultArrayProfitPercentage)
+
+                                buildedObject[obj].resultArrayBarsClose = resultArrayBarsClose;
+                                buildedObject[obj].resultArrayBarsCloseReversal = resultArrayBarsCloseReversal;
+                                buildedObject[obj].resultArrayBarsIgnore = resultArrayBarsIgnore;
+                                buildedObject[obj].resultArrayBarsIgnoreClose = resultArrayBarsIgnoreClose;
+                                buildedObject[obj].resultArrayProfitPercentage = resultArrayProfitPercentage;
+
+                                partialResultOutput[instrument] = buildedObject
+
+                                console.log("BUILDED_OBJ", buildedObject)
+                            })
+
+                            //READY RESULT => PASS TO COMPONENT
+
+                            console.log("BUILDED_RESULT", partialResultOutput)
+                        })
+
+
+
+                        return partialResultOutput;
+
+                    }
+
+
+                    this.observe("requestResultBeforeModifyPartial" ,  (newValue, oldValue)=>{
+                             let result = countAndTakeBestPercentage({...newValue}, {...this.get("requestResultBeforeModifyFull")}, this.get("percent"))
+                            this.set("resultFull" , result )
+                   
+                   
+
+                    })
+
+
+                    this.observe("percent" ,  ( newValue ,  oldValue)=>{
+                        console.log("PERCENT")
+                        let result = countAndTakeBestPercentage({...this.get("requestResultBeforeModifyPartial")}, {...this.get("requestResultBeforeModifyFull")}, this.get("percent"))
+                        this.set("resultFull", result)
+                    } ,  {init: false})
+
+                    
+                   
+                }
+})
+
 window.tableProfit  = new Ractive({
         el: "#table-profit",
         data : {
-            selectConfig:{field:"symbol", options:[] },
+            selectConfig:{field:"symbol", options:[] ,noLabel : true ,  isVisible: true },
             currentData:[],
             currentPage:0,
             currentPageData:[],
             filterState:{profit:true}},
         template:`
+
+         <div  class="border border-3  border-primary" style=" padding:1rem" >
+
             {{#if (Array.isArray(fullData) && fullData.length == 0) || (typeof fullData === "object" && Object.keys(fullData).length == 0) }}
+        
+
                 <!-- LOADER --> 
                 <div class="d-flex justify-content-center" style="margin-top:30px">
                     <div class="spinner-grow" role="status" style="margin-right:5px">
@@ -124,23 +379,36 @@ window.tableProfit  = new Ractive({
                     </div>
                 </div>
             {{elseif (Array.isArray(fullData) && fullData.length>0) || (typeof fullData === "object" && Object.keys(fullData).length > 0) }}
-            <div style="display:flex;justify-content:space-between;align-items: center;">
-                
-                <div style="width:30%">
-                    <select-input config={{selectConfig}} value={{symbolValue}} />
+
+
+         
+                <div class="shadow p-3 mb-5 bg-body-tertiary rounded" style="text-align:center"> Table Profit</div>
+                <button on-click="@this.switchTable()" style="width:100%" type="button" class="btn btn-success">{{#if isVisible }} Hide {{else}}  Show {{/if}} table</button>
+            
+
+            <!-- SETTINGS -->    
+            {{#if isVisible}}    
+                <div style="display:flex;justify-content:space-between;align-items: center; padding:1rem;" class="border"  >
+                    <div style="width:100%" >
+                        <select-input config={{selectConfig}} value={{symbolValue}} />
+                    </div>
+                    <div>
+                        {{#if symbolValue && symbolValue != ""}}
+                            <button type="button" class="btn btn-outline-primary" on-click="@this.sendToExport(fullData[symbolValue],symbolValue, 'csv')"  data-bs-toggle="modal" data-bs-target="#export_file_modal" ><i class="fa-solid fa-file-arrow-down"></i></button>
+                        {{/if}}
+                    </div>
                 </div>
-                <div>
-                    {{#if symbolValue && symbolValue != ""}}
-                        <button type="button" class="btn btn-outline-primary" on-click="@this.sendToExport(fullData[symbolValue],symbolValue, 'csv')"  data-bs-toggle="modal" data-bs-target="#export_file_modal" ><i class="fa-solid fa-file-arrow-down"></i></button>
-                    {{/if}}
-                </div>
-            </div>
-        {{/if}}
-        {{#if currentPageData.length>0 && symbolValue && symbolValue != "" }}
-         <table class="table table-hover table-bordered caption-top ">
+            {{/if}}
+
+            {{/if}}
+
+            <!-- START TABLE -->  
+
+            {{#if currentPageData.length>0 && symbolValue && symbolValue != "" && isVisible }}
+            <table class="table  table-bordered caption-top table-striped align-middle ">
                 <caption>
-                    <div>Orders call : {{currentData[0].orderCall}}</div>
-                    <div>Dates : {{@global.DATA_SETTINGS.date.from}} - {{@global.DATA_SETTINGS.date.to}}</div>
+                    <div><strong> Orders call : </strong> {{currentData[0].orderCall}}</div>
+                    <div><strong> Dates : </strong> {{@global.DATA_SETTINGS.date.from}} - {{@global.DATA_SETTINGS.date.to}}</div>
                 </caption>
    
                 <thead class="table-light">
@@ -180,9 +448,18 @@ window.tableProfit  = new Ractive({
                     <li style="cursor:pointer;user-select: none;" class="page-item {{#if currentPage == Math.floor(currentData.length/10)}}disabled{{/if}} " on-click="@this.nextPage()" ><span class="page-link" href="#">Next</span></li>
                 </ul>
             </nav>
+
+       
+
         {{/if}}
+      
+ </div>
 
         `,
+        switchTable: function () {
+            this.set("isVisible", !this.get("isVisible"))
+        },
+
         sendToExport : function(json, fileName ,exportType){
             window.exportRactive.set("exportData", json)
             window.exportRactive.set("exportType", exportType)
@@ -241,10 +518,13 @@ window.tableProfit  = new Ractive({
                     this.set("currentPage", 0)
                 }
             })
+
             this.observe("currentData" , (newValue,oldValue)=>{
                 console.log("CHANGE_DATA",newValue)
                 this.getCurrentPageData(this.get("currentPage"))
             })
+
+   
 
         }
 
@@ -328,7 +608,7 @@ window.dataRactive = new Ractive({
                 global_variable:"DATA_SETTINGS",
                 fields: [
                     {field:"timezone",type:"select", options:["GMT-12","GMT-11","GMT-10","GMT-9","GMT-8","GMT-7","GMT-6","GMT-5","GMT-4","GMT-3","GMT-2","GMT-1","GMT0","GMT+1","GMT+2","GMT+3","GMT+4","GMT+5","GMT+6","GMT+7","GMT+8","GMT+9","GMT+10","GMT+11","GMT+12","GMT+13"], ajv:{type:"string",enum:["GMT-12","GMT-11","GMT-10","GMT-9","GMT-8","GMT-7","GMT-6","GMT-5","GMT-4","GMT-3","GMT-2","GMT-1","GMT0","GMT+1","GMT+2","GMT+3","GMT+4","GMT+5","GMT+6","GMT+7","GMT+8","GMT+9","GMT+10","GMT+11","GMT+12","GMT+13"]}},
-                    {field:"trading_hours", type:"multifield", condition:{type:"disable",trigger:"isAdvancedTradingHours",value:false}, ajv:multifieldAJV},
+                    {field:"trading_hours", label : "Trading Hours" ,   type:"multifield", condition:{type:"disable",trigger:"isAdvancedTradingHours",value:false}, ajv:multifieldAJV},
                     {field: "isAdvancedTradingHours",label:"Advanced trading hours", noLabel:true, type: "checkbox" , defaultValue : false , ajv:{type:"boolean"}},
                     {field:"sunday_trading_hours", type:"multifield",  condition:{type:"display",trigger:"isAdvancedTradingHours",value:true}, ajv:multifieldAJV},
                     {field:"monday_trading_hours", type:"multifield",condition:{type:"display",trigger:"isAdvancedTradingHours",value:true}, ajv:multifieldAJV},
@@ -339,6 +619,7 @@ window.dataRactive = new Ractive({
                     {field:"saturday_trading_hours", type:"multifield",condition:{type:"display",trigger:"isAdvancedTradingHours",value:true}, ajv:multifieldAJV},
                     {field:"symbols", multiple:true,type:"select", options:["NQ","ES","AAPL","AMZN","GOOGL","MSFT","NVDA","TSLA" ], ajv:{type:"array",minItems:1,items:[{type:"string",enum:["NQ","ES","AAPL","AMZN","GOOGL","MSFT","NVDA","TSLA" ]}],required:true}},
                     {field:"timeframe", type:"select", options:[{value:"",text:"Select timeframe..."},"1H","4H","1D","1W","1M","1min","3min","5min" ], ajv:{type:["string"],enum:["1H","4H","1D","1W","1M","1min","3min","5min"],required:true}},
+                    {field: "slice_ranges", label:"Slice Ranges" , type: "select", options: [{ value: "", text: "Select timeframe..." }, "1H", "4H", "1D", "1W", "1M"], ajv: { type: ["string"], enum: ["1H", "4H", "1D", "1W"]} },
                     {field:"date", type:"date",range:true,ajv:{type:"object",properties:{from: {type: "string"},to:{type:"string"},required:true}}}
                 ]
             },

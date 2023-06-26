@@ -1,5 +1,6 @@
 import { parentPort, workerData } from "worker_threads";
 import calculateProfit from "./calculateProfit.js";
+import UtilsManager from "./utils/utils.js";
 
 function buildResult(
   arr,
@@ -30,15 +31,63 @@ function buildResult(
     bars: symbol_bars_data,
   };
   return calculateProfit(obj);
-
-  results[symbol_bars].push(calculateProfit(obj));
 }
 
-// console.log("workerData", JSON.stringify(workerData));
-
 let result_arr = [];
+let partialResult = [];
+let partialRange = undefined;
 
+// TODO START HERE
 workerData.arr.forEach((arr, arrIndex) => {
+  // build array by 50
+  let newArray = [];
+
+  // TODO EXAMPLE DIVIDER BY BLOCKS
+  // let divider = 50;
+  // let index = true;
+  // while (index) {
+  //   let startIndex = newArray.length; //
+  //   let arrayEl = workerData.symbol_bars_data.slice(
+  //     startIndex * divider,
+  //     startIndex * divider + divider
+  //   );
+  //   if (arrayEl.length == divider) {
+  //     newArray.push(arrayEl);
+  //   } else {
+  //     index = false;
+  //   }
+  // }
+
+  if (workerData.slice_ranges) {
+    if (workerData.slice_ranges == "1M") {
+      newArray = UtilsManager.splitMonth(workerData.symbol_bars_data);
+    } else if (workerData.slice_ranges == "1D") {
+      newArray = UtilsManager.splitDay(workerData.symbol_bars_data);
+    } else if (workerData.slice_ranges == "1W") {
+      newArray = UtilsManager.splitWeek([...workerData.symbol_bars_data]);
+    }
+  }
+
+  // DIVIDED ARRAY
+
+  newArray.forEach((el, index) => {
+    partialResult.push({
+      id: index + 1,
+      result: buildResult(
+        arr,
+        workerData.alias,
+        workerData.configSettings,
+        workerData.symbol_bars,
+        el,
+        workerData.orderCall,
+        workerData.disabledCriterias
+      ),
+    });
+  });
+
+  // SET PARTIAL RANGE
+  partialRange = newArray.length;
+
   // TODO UNCOMMENT
   result_arr.push(
     buildResult(
@@ -55,4 +104,6 @@ workerData.arr.forEach((arr, arrIndex) => {
 
 parentPort.postMessage({
   result: result_arr,
+  partialResult,
+  partialRange,
 });

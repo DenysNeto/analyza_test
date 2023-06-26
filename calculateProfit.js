@@ -570,5 +570,12 @@ export default function calculateProfit(config) {
   // console.log("Orders status: ", closed);
   delete config["bars"];
 
-  return { profit, orders: arrayStatistics.length, ...config };
+  return {
+    profit: Math.floor(profit),
+    startDate: new Date(+(time[0] + "000")).toLocaleString(),
+    finishDate: new Date(+(time[time.length - 1] + "000")).toLocaleString(),
+    orders: arrayStatistics.length,
+    bars: bars_data.length,
+    ...config,
+  };
 }

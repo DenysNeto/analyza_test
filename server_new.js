@@ -67,15 +67,13 @@ app.post("/calculate", function (req, res) {
   symbols.forEach(async (symbol) => {
     let path = `./assets/JSON/${symbol}/${symbol}, ${settings.dataSettings.timeframe}.json`;
     let bars_data = require(path);
-    console.log("BAR1", bars_data.length);
+
     //FILTER BARS BY DATE RANGE
     let date_from = new Date(settings.dataSettings.date.from).getTime();
     let date_to = new Date(settings.dataSettings.date.to).getTime();
     bars_data = bars_data.filter(
       (el) => +el.time + "000" >= date_from && +el.time + "000" < date_to
     );
-
-    console.log("BAR2", bars_data.length);
 
     //FILTER BARS BY TRADING HOURS
     if (
@@ -133,7 +131,6 @@ app.post("/calculate", function (req, res) {
         }
       });
     }
-    console.log("BAR3", bars_data.length);
 
     // bars_data = bars_data.reverse();
     allSymbolsBars[symbol] = bars_data;
@@ -181,6 +178,7 @@ app.post("/calculate", function (req, res) {
   let alias = fullResult.alias;
   //let results = [];
   let results = {};
+  let resultsPartials = {};
 
   // PREPARE CASES
   let counter = 0;
@@ -197,6 +195,7 @@ app.post("/calculate", function (req, res) {
     }
   });
 
+  console.log("COUNT", arrWorkers.length);
   console.time("Total_calc");
 
   Object.keys(allSymbolsBars).forEach((symbol_bars, index) => {
@@ -206,10 +205,11 @@ app.post("/calculate", function (req, res) {
       results[symbol_bars] = [];
     }
 
-    // console.time(`CALC_${symbol_bars}`);
+    if (!resultsPartials[symbol_bars]) {
+      resultsPartials[symbol_bars] = [];
+    }
 
-    // build arr [[]]
-    // for each
+    console.log("CONFIG_SETTINGS", settings.dataSettings.slice_ranges);
 
     arrWorkers.forEach((arr, arrIndex) => {
       let worker = new Worker("./webworker_calculate.js", {
@@ -221,17 +221,18 @@ app.post("/calculate", function (req, res) {
           symbol_bars_data: allSymbolsBars[symbol_bars],
           orderCall: settings.configSettings.orderCall,
           disabledCriterias,
+          slice_ranges: settings.dataSettings.slice_ranges,
         },
       });
+
       worker.once("message", (result) => {
         // push
         // if arr.length == arrParams => send
+
         counter++;
         results[symbol_bars].push(result.result);
-        if (
-          counter * workerNumber >=
-          arrParams.length * Object.keys(allSymbolsBars).length
-        ) {
+        resultsPartials[symbol_bars].push(result.partialResult);
+        if (arrWorkers.length * Object.keys(allSymbolsBars).length <= counter) {
           Object.keys(results).forEach((result) => {
             let result_temp = [];
             results[result].forEach((el) => {
@@ -239,7 +240,21 @@ app.post("/calculate", function (req, res) {
             });
             results[result] = result_temp;
           });
-          res.json(results);
+
+          Object.keys(resultsPartials).forEach((result) => {
+            let result_temp = [];
+            resultsPartials[result].forEach((el) => {
+              result_temp = result_temp.concat(el);
+            });
+            resultsPartials[result] = result_temp;
+          });
+
+          res.json({
+            results,
+            partialResult: resultsPartials,
+            partialRange: result.partialRange,
+          });
+
           console.timeEnd("Total_calc");
           console.log(
             "RESULTS:",
@@ -397,31 +412,6 @@ function buildParams(params) {
   // ADD WEBWORKERS
 
   return { resultModified, alias };
-}
-
-function buildResult(
-  results,
-  arr,
-  alias,
-  configSettings,
-  symbol_bars,
-  symbol_bars_data
-) {
-  let arrTranslated = arr.map((el) => alias[el]);
-  let obj = {};
-  Object.keys(configSettings).forEach((key, index) => {
-    obj[key] = arrTranslated[index];
-  });
-
-  console.log("OBJ", obj);
-  obj = {
-    ...obj,
-    orderCall: "Both",
-    bars: symbol_bars_data,
-  };
-  return calculateProfit(obj);
-
-  results[symbol_bars].push(calculateProfit(obj));
 }
 
 // func async count ()
