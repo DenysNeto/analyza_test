@@ -46,23 +46,23 @@ app.post("/calculate", function (req, res) {
   };
 
   //  Add settings to log data(calculate_logs.txt)
-  fs.readFile(__dirname + "/logs/calculate_logs.txt", "utf8", (err, data) => {
-    if (err) {
-      console.log("Err sendedMessage", err);
-    } else {
-      if (data == null || data == "" || data == undefined) {
-        data = null;
-      }
-      let LOG =
-        data == null
-          ? JSON.stringify(calculate_log)
-          : data + "," + JSON.stringify(calculate_log);
+  // fs.readFile(__dirname + "/logs/calculate_logs.txt", "utf8", (err, data) => {
+  //   if (err) {
+  //     console.log("Err sendedMessage", err);
+  //   } else {
+  //     if (data == null || data == "" || data == undefined) {
+  //       data = null;
+  //     }
+  //     let LOG =
+  //       data == null
+  //         ? JSON.stringify(calculate_log)
+  //         : data + "," + JSON.stringify(calculate_log);
 
-      fs.writeFileSync(__dirname + "/logs/calculate_logs.txt", LOG, () => {
-        console.log("SeND");
-      });
-    }
-  });
+  //     fs.writeFileSync(__dirname + "/logs/calculate_logs.txt", LOG, () => {
+  //       console.log("SeND");
+  //     });
+  //   }
+  // });
 
   symbols.forEach(async (symbol) => {
     let path = `./assets/JSON/${symbol}/${symbol}, ${settings.dataSettings.timeframe}.json`;
