@@ -36,6 +36,7 @@
     "telegraf-calendar-telegram": "^2.0.2",
     "telegraf-inline-menu": "^6.3.0",
     "telegraf-menu": "^1.7.2",
-    "tradingeconomics": "^2.2.3"
+    "tradingeconomics": "^2.2.3",
+    "ws": "^7.5.9"
   }
 }

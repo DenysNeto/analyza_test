@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dropzone</title>
+    <link href="https://unpkg.com/filepond@^4/dist/filepond.css" rel="stylesheet" />
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://getbootstrap.com/docs/5.3/assets/css/docs.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ractive"></script>
+    <script src="https://kit.fontawesome.com/e45f08485e.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ajv/8.12.0/ajv7.min.js"
+    integrity="sha512-U2SW9Ihh3GF6F8gP8QgLS+I244xnM5pFCh3cigpw7bAzUDnKDlxdlFL4kjyXTle8SJl/tJ0gdnwd44Eb3hLG/Q=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="./components.js"></script>
+    <script src="./utils.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+
+    <!-- new libraries to add -->
+    <script src="https://unpkg.com/filepond-plugin-file-validate-type/dist/filepond-plugin-file-validate-type.js"></script>
+    <script src="https://unpkg.com/filepond@^4/dist/filepond.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.13.1/xlsx.full.min.js"></script> 
+
+    
+
+
+</head>
+<body>
+    <button onclick="location.pathname='/'" class="mb-2 d-grid col-8 mx-auto btn btn-primary"> BACK </button>
+    <div id="dropzone"></div>
+
+
+    <script >
+
+    function FileTypeToJSON(file, extension) {
+
+        var result = {};
+
+        try {
+            if (extension.toLowerCase() == "csv") {
+                var jsonData = [];
+                var headers = [];
+                var rows = file.split("\r\n");
+                for (var i = 0; i < rows.length; i++) {
+                    var cells = rows[i].split(",");
+                    var rowData = {};
+                    for (var j = 0; j < cells.length; j++) {
+                        if (i == 0) {
+                            var headerName = cells[j].trim();
+                            headers.push(headerName);
+                        } else {
+                            var key = headers[j];
+                            if (key) {
+                                rowData[key] = cells[j].trim();
+                            }
+                        }
+                    }
+                    //skip the first row (header) data
+                    if (i != 0) {
+                        jsonData.push(rowData);
+                    }
+                }
+                result = jsonData
+            }
+
+            if (extension.toLowerCase() == "xlsx") {
+                var data = file;
+                var workbook = XLSX.read(data, {
+                    type: 'binary'
+                });
+
+                workbook.SheetNames.forEach(function (sheetName) {
+                    var roa = XLSX.utils.sheet_to_row_object_array(workbook.Sheets[sheetName]);
+                    if (roa.length > 0) {
+                        result = roa;
+                    }
+
+                });
+            }
+            console.log(result)
+            return result
+        } catch (e) {
+            console.error(e);
+            return {}
+        }
+    }
+
+function exportFile(json,file_extension, file_name){
+    let filename = file_name ? `${file_name}.${file_extension.toLowerCase()}` : `unnamed_file.${file_extension.toLowerCase()}`
+
+    const download = function (data) {
+        const blob = new Blob([data], { type: `text/${file_extension}` });
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.setAttribute('href', url)
+        a.setAttribute('download', filename);
+        a.click()
+        }
+
+    if(file_extension.toLowerCase() == "json"){
+        download(JSON.stringify(json))
+    }
+
+
+
+    if(file_extension.toLowerCase() == "xlsx"){
+            var ws = XLSX.utils.json_to_sheet(json);
+            var wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Fields");
+            XLSX.writeFile(wb,filename);
+        } 
+    
+    if(file_extension.toLowerCase() == "csv"){
+        var fields = Object.keys(json[0])
+        var replacer = function(key, value) { return value === null ? '' : value } 
+        var csv = json.map(function(row){
+        return fields.map(function(fieldName){
+            return JSON.stringify(row[fieldName], replacer)
+        }).join(',')
+        })
+        csv.unshift(fields.join(',')) // add header column
+        csv = csv.join('\r\n');
+        console.log(csv)
+        download(csv)
+    }
+
+}
+function JSONtoFileType(json,file_type)
+    {
+        let file_data = ""
+        if(file_type.toLowerCase() == "csv"){
+            var fields = Object.keys(json[0])
+            var replacer = function(key, value) { return value === null ? '' : value } 
+            var csv = json.map(function(row){
+            return fields.map(function(fieldName){
+                return JSON.stringify(row[fieldName], replacer)
+            }).join(',')
+            })
+            csv.unshift(fields.join(',')) // add header column
+            csv = csv.join('\r\n');
+            console.log(csv)
+            file_data = csv
+        }
+        if(file_type.toLowerCase() == "xlsx"){
+            var ws = 
+        //     var wb = XLSX.utils.book_new();
+        //     wb = XLSX.utils.book_append_sheet(wb, ws, "Fields");
+        //    XLSX.writeFile(wb,filename);
+            file_data = XLSX.utils.json_to_sheet(json);
+        }
+
+        return file_data
+     }
+
+// CONVERT CSV to JSON ( instead use FileTypeToJSON )
+function csvFileToJSON(file){
+          try {
+    
+                var jsonData = [];
+                var headers = [];
+                var rows = file.split("\r\n");               
+                for (var i = 0; i < rows.length; i++) {
+                    var cells = rows[i].split(",");
+                    var rowData = {};
+                    for(var j=0;j<cells.length;j++){
+                        if(i==0){
+                            var headerName = cells[j].trim();
+                            headers.push(headerName);
+                        }else{
+                            var key = headers[j];
+                            if(key){
+                                rowData[key] = cells[j].trim();
+                            }
+                        }
+                    }
+                    //skip the first row (header) data
+                    if(i!=0){
+                        jsonData.push(rowData);
+                    }
+                }
+                console.log("JSON" ,jsonData)
+            }catch(e){
+                console.error(e);
+            }
+      }
+
+function JSONToTable(el,json){
+                    let table = new Ractive({
+                        el:el,
+                        data:{data:json},
+                        template:`
+                        <!-- use table-c with pagination -->
+                        <table>
+                            <thead>
+                                <tr>  
+                                    {{#each Object.keys(data[0])}}
+                                        <th> {{.}} </th>
+                                    {{/each}}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {{#each data as rows:index}}
+                                    <tr>
+                                        {{#each Object.values(data)[index] as row:index}}
+                                            <td>{{row}}</td>
+                                        {{/each}}
+                                    </tr>
+                                {{/each}}
+                            </tbody>
+            
+                        </table>
+        
+                        `
+                    })
+                    }
+// INSTEAD USE JSON TO BUILD TABLE
+// function csvFileToTable(el,csv){
+//                     let table = new Ractive({
+//                         el:el,
+//                         data:{csv:csv},
+//                         template:`
+//                         <table>
+//                             <thead>
+//                                 <tr>  
+//                                     {{#each csv[0]}}
+//                                         <th> {{.}} </th>
+//                                     {{/each}}
+//                                 </tr>
+//                             </thead>
+//                             <tbody>
+//                                 {{#each csv as rows:index}}
+//                                 {{#if index >0}}
+//                                     <tr>
+//                                         {{#each rows as row:index}}
+//                                             <td>{{row}}</td>
+//                                         {{/each}}
+//                                     </tr>
+//                                 {{/if}}
+//                                 {{/each}}
+//                             </tbody>
+            
+//                         </table>
+        
+//                         `
+//                     })
+//                     }
+
+ FilePond.registerPlugin(FilePondPluginFileValidateType);
+
+let ractiveDropzone = new Ractive({
+    el:"#dropzone",
+    data:{
+        extension_type : "file",
+        modal_export:{id:"EXPORT",label:"Export", header:"Export files"},
+        //accepted_extensions : ["xlsx", "xls", "text/csv"]
+    },
+    template:`
+
+        <input id="dropzone" type="file"  class="filepond" name="filepond" accept='{{accepted_extensions.join(",")}}'/>
+       
+    {{#if uploaded_file}}
+        <modal-c id={{modal_export.id}} label={{modal_export.label}} >
+            <div style="display:flex; justify-content:space-evenly">
+                <button class="btn btn-primary" on-click="@this.export_file('CSV')">CSV</button>
+                <button class="btn btn-primary" on-click="@this.export_file('JSON')">JSON</button>
+                <button class="btn btn-primary" on-click="@this.export_file('XLSX')">XLSX</button>
+            </div>
+        </modal-c>
+
+
+                <!-- MODAL build graph -->
+                <modal-c id="exampleModal" title="Enter Orders">
+                    <canvas id="hoursChart"></canvas>
+                    <canvas id="weekDaysChart"></canvas>
+                    <canvas id="monthDaysChart"></canvas>
+                </modal-c>
+
+
+                 <button type="button" class="btn btn-primary" on-click="@this.openModal(uploaded_file_json)"  data-bs-toggle="modal" data-bs-target="#exampleModal">Show graphs</button>
+
+
+
+    {{/if}}
+
+
+   
+
+        <div id="output">
+        
+         </div>
+    `,
+    openModal : function (input) {
+
+
+  
+        if (window.chartHours) {
+            window.chartHours.destroy()
+            window.chartWeek.destroy()
+            window.chartMonth.destroy()
+        }
+
+        input = input.map(el => { return { ...el, timeEnter: new Date(el["Open Time ET"]).getTime() } })
+
+        let resultHours = window.UtilsManager.divideIntoHours(input)
+        let resultWeekDay = window.UtilsManager.divideIntoWeekDays(input)
+        let resultMonthDay = window.UtilsManager.divideIntoMonthDays(input)
+
+        let arrayResultHours = Object.keys(resultHours).map(key => resultHours[key].length)
+        let arrayResultWeekDay = Object.keys(resultWeekDay).map(key => resultWeekDay[key].length)
+        let arrayResultMonthDay = Object.keys(resultMonthDay).map(key => resultMonthDay[key].length)
+
+        // DIAGRAM
+        const hours = document.getElementById('hoursChart');
+        const week = document.getElementById('weekDaysChart');
+        const month = document.getElementById('monthDaysChart');
+
+        let weekDays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+        window.chartHours = new Chart(hours, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(resultHours),
+                datasets: [{
+                    label: '# Hours (UTC 0)',
+                    data: arrayResultHours,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        let labelsWeek = Object.keys(arrayResultWeekDay).map(key => weekDays[+key])
+        console.log("LABELS_WEEK", labelsWeek)
+        window.chartWeek = new Chart(week, {
+            type: 'bar',
+            data: {
+                labels: labelsWeek,
+                datasets: [{
+                    label: '# Week',
+                    data: arrayResultWeekDay,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+
+        window.chartMonth = new Chart(month, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(resultMonthDay),
+                datasets: [{
+                    label: '# Month',
+                    data: arrayResultMonthDay,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+
+    },
+    export_file(extension){
+        let filename = this.get(`uploaded_file`).filename
+            let splitted = filename.split(".")
+            filename = splitted[0] + "_from_analyz"
+            exportFile(this.get(`uploaded_file_json`),extension.toLowerCase(), filename)
+
+    },
+    onrender:function(){
+        if(this.get("extension_type") && !this.get("accepted_extensions")){
+            let ext_type = this.get("extension_type")
+            if(ext_type == "file"){
+                this.set("accepted_extensions", ["application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","application/xml","text/csv"] )
+            }
+            if(ext_type == "image"){}
+        }
+
+       // this.set("accepted_extensions", this.get("accepted_extensions").map((ext)=>{return ext.startsWith(".") ? ext : "."+ext }))
+
+       //INIT DROPZONE INSTANCE
+        this.file_dropzone =  FilePond.create(this.find("#dropzone"),
+        {
+            labelIdle: `<span> Drag & Drop your file or <span class="filepond--label-action">Browse</span> </span>`,
+            acceptedFileTypes :this.get("accepted_extensions")
+        })
+
+        //EVENT ADD FILE
+        this.file_dropzone.on("addfile" , (error,file)=>{
+
+            console.log("uploaded_file", file)
+            if(error){console.log(error);return}
+            this.set("uploaded_file",file)
+            this.set(`uploaded_file_formats`,{})
+            setTimeout(()=>{ const reader = new FileReader();
+            reader.readAsBinaryString(file.file)
+            reader.onloadend = () => {        
+                let file_data = FileTypeToJSON(reader.result, file.fileExtension)     
+                
+                this.set(`uploaded_file_json`,file_data)
+
+                
+                JSONToTable(this.find("#output"),file_data)
+            }},1000)
+
+        })
+        //EVENT REMOVE FILE
+        this.file_dropzone.on("removefile", ()=>{
+            this.find("#output").innerHTML = ""
+            this.set("uploaded_file",undefined)
+        })
+        //EVENT ERROR
+        this.file_dropzone.on("error" , (error)=>{
+           console.log("ERRROR",error)
+
+        })
+
+        window.dropzone = this
+
+
+        // START EXAMPLE GRAPHS
+
+
+
+    }
+})
+
+
+
+
+
+                                
+
+
+
+
+
+    </script>
+</body>
+</html>

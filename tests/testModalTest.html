@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link href="https://getbootstrap.com/docs/5.3/assets/css/docs.css" rel="stylesheet">
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/ractive"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+
+</head>
+    <body>
+
+                <div>
+                    <canvas id="hoursChart"></canvas>
+                    <canvas id="weekDaysChart"></canvas>
+                    <canvas id="monthDaysChart"></canvas>
+                </div>
+        
+
+
+                <script>
+
+    function divideIntoHours (arr)  {
+        let hours = {};
+        arr.forEach((el) => {
+            let result = new Date(+(el.timeEnter + "000")).getUTCHours();
+            if (hours[result]) {
+                hours[result].push(el);
+            } else {
+                hours[result] = [el];
+            }
+        });
+        return hours;
+    }
+
+       function  divideIntoWeekDays (arr)  {
+            let weekDays = {};
+            arr.forEach((el) => {
+                let result = new Date(+(el.timeEnter + "000")).getUTCDay();
+                if (weekDays[result]) {
+                    weekDays[result].push(el);
+                } else {
+                    weekDays[result] = [el];
+                }
+            });
+            return weekDays;
+        }
+
+        function divideIntoMonthDays (arr)  {
+                let monthDays = {};
+                arr.forEach((el) => {
+                    let result = new Date(+(el.timeEnter + "000")).getDate();
+                    if (monthDays[result]) {
+                        monthDays[result].push(el);
+                    } else {
+                        monthDays[result] = [el];
+                    }
+                    return monthDays;
+                });
+                return monthDays;
+            }
+
+
+
+                    let input =  [
+                            {
+                                "entrySignal": "BullTAR",
+                                "barIndex": 5,
+                                "exitPrice": 6260.25,
+                                "timeEnter": 1517958000,
+                                "timeTransformed": "Wed Feb 07 2018",
+                                "initPrice": 6677.5,
+                                "id": 1,
+                                "timeExit": 1518130800,
+                                "signalExit": "SL",
+                                "profit": -62.485960314488956,
+                                "barIndexExit": 7
+                            },
+                            {
+                                "entrySignal": "BearTAR",
+                                "barIndex": 6,
+                                "exitPrice": 6401.36,
+                                "timeEnter": 1518044400,
+                                "timeTransformed": "Thu Feb 08 2018",
+                                "initPrice": 6532,
+                                "id": 2,
+                                "timeExit": 1518130800,
+                                "signalExit": "TP",
+                                "profit": 20.00000000000005,
+                                "barIndexExit": 7
+                            },
+                            {
+                                "entrySignal": "BullTAR",
+                                "barIndex": 8,
+                                "exitPrice": 6584.61,
+                                "timeEnter": 1518390000,
+                                "timeTransformed": "Mon Feb 12 2018",
+                                "initPrice": 6455.5,
+                                "id": 3,
+                                "timeExit": 1518562800,
+                                "signalExit": "TP",
+                                "profit": 19.99999999999995,
+                                "barIndexExit": 10
+                            },
+                            {
+                                "entrySignal": "BullTAR",
+                                "barIndex": 11,
+                                "exitPrice": 6783.25,
+                                "timeEnter": 1518649200,
+                                "timeTransformed": "Thu Feb 15 2018",
+                                "initPrice": 6692.75,
+                                "id": 4,
+                                "timeExit": 1518994800,
+                                "signalExit": "Bars",
+                                "profit": 13.522094804079039,
+                                "barIndexExit": 13
+                            },
+                            {
+                                "entrySignal": "BearTAR",
+                                "barIndex": 13,
+                                "exitPrice": 6859.75,
+                                "timeEnter": 1518994800,
+                                "timeTransformed": "Mon Feb 19 2018",
+                                "initPrice": 6762,
+                                "id": 5,
+                                "timeExit": 1519167600,
+                                "signalExit": "SL",
+                                "profit": -14.455782312925171,
+                                "barIndexExit": 14
+                            },
+                            {
+                                "entrySignal": "BullTAR",
+                                "barIndex": 14,
+                                "exitPrice": 6723.25,
+                                "timeEnter": 1519167600,
+                                "timeTransformed": "Wed Feb 21 2018",
+                                "initPrice": 6843.75,
+                                "id": 6,
+                                "timeExit": 1519254000,
+                                "signalExit": "SL",
+                                "profit": -17.607305936073057,
+                                "barIndexExit": 15
+                            },
+                            {
+                                "entrySignal": "BearTAR",
+                                "barIndex": 15,
+                                "exitPrice": 6885.5,
+                                "timeEnter": 1519254000,
+                                "timeTransformed": "Thu Feb 22 2018",
+                                "initPrice": 6741.25,
+                                "id": 7,
+                                "timeExit": 1519340400,
+                                "signalExit": "SL",
+                                "profit": -21.39810865937326,
+                                "barIndexExit": 16
+                            },
+                            {
+                                "entrySignal": "BullTAR",
+                                "barIndex": 16,
+                                "exitPrice": 6968.13,
+                                "timeEnter": 1519340400,
+                                "timeTransformed": "Fri Feb 23 2018",
+                                "initPrice": 6831.5,
+                                "id": 8,
+                                "timeExit": 1519599600,
+                                "signalExit": "TP",
+                                "profit": 20.000000000000014,
+                                "barIndexExit": 17
+                            },
+                            {
+                                "entrySignal": "BearTAR",
+                                "barIndex": 19,
+                                "exitPrice": 6765.92,
+                                "timeEnter": 1519772400,
+                                "timeTransformed": "Wed Feb 28 2018",
+                                "initPrice": 6904,
+                                "id": 9,
+                                "timeExit": 1519858800,
+                                "signalExit": "TP",
+                                "profit": 19.99999999999999,
+                                "barIndexExit": 20
+                            },
+                            {
+                                "entrySignal": "BullTAR",
+                                "barIndex": 22,
+                                "exitPrice": 6858,
+                                "timeEnter": 1520204400,
+                                "timeTransformed": "Mon Mar 05 2018",
+                                "initPrice": 6823.25,
+                                "id": 10,
+                                "timeExit": 1520377200,
+                                "signalExit": "Bars",
+                                "profit": 5.092880958487524,
+                                "barIndexExit": 24
+                            },
+                            {
+                                "entrySignal": "BullTAR",
+                                "barIndex": 25,
+                                "exitPrice": 7075.74,
+                                "timeEnter": 1520463600,
+                                "timeTransformed": "Thu Mar 08 2018",
+                                "initPrice": 6937,
+                                "id": 11,
+                                "timeExit": 1520550000,
+                                "signalExit": "TP",
+                                "profit": 19.999999999999968,
+                                "barIndexExit": 26
+                            },
+                            {
+                                "entrySignal": "BearTAR",
+                                "barIndex": 29,
+                                "exitPrice": 7072.75,
+                                "timeEnter": 1520978400,
+                                "timeTransformed": "Wed Mar 14 2018",
+                                "initPrice": 7050.5,
+                                "id": 12,
+                                "timeExit": 1521151200,
+                                "signalExit": "Bars",
+                                "profit": -3.1558045528685907,
+                                "barIndexExit": 31
+                            },
+                            {
+                                "entrySignal": "BearTAR",
+                                "barIndex": 35,
+                                "exitPrice": 6705.405,
+                                "timeEnter": 1521669600,
+                                "timeTransformed": "Thu Mar 22 2018",
+                                "initPrice": 6842.25,
+                                "id": 13,
+                                "timeExit": 1521756000,
+                                "signalExit": "TP",
+                                "profit": 20.000000000000036,
+                                "barIndexExit": 36
+                            },
+                            {
+                                "entrySignal": "BearTAR",
+                                "barIndex": 39,
+                                "exitPrice": 6360.2,
+                                "timeEnter": 1522188000,
+                                "timeTransformed": "Wed Mar 28 2018",
+                                "initPrice": 6490,
+                                "id": 14,
+                                "timeExit": 1522620000,
+                                "signalExit": "TP",
+                                "profit": 20.00000000000003,
+                                "barIndexExit": 41
+                            },
+                            {
+                                "entrySignal": "BullTAR",
+                                "barIndex": 44,
+                                "exitPrice": 6463,
+                                "timeEnter": 1522879200,
+                                "timeTransformed": "Thu Apr 05 2018",
+                                "initPrice": 6591.75,
+                                "id": 15,
+                                "timeExit": 1523224800,
+                                "signalExit": "Bars",
+                                "profit": -19.53199074600827,
+                                "barIndexExit": 46
+                            },
+                            {
+                                "entrySignal": "BullTAR",
+                                "barIndex": 59,
+                                "exitPrice": 6668,
+                                "timeEnter": 1524693600,
+                                "timeTransformed": "Thu Apr 26 2018",
+                                "initPrice": 6583.25,
+                                "id": 16,
+                                "timeExit": 1525039200,
+                                "signalExit": "Bars",
+                                "profit": 12.873580678236433,
+                                "barIndexExit": 61
+                            },
+                            {
+                                "entrySignal": "BearTAR",
+                                "barIndex": 61,
+                                "exitPrice": 6715.5,
+                                "timeEnter": 1525039200,
+                                "timeTransformed": "Mon Apr 30 2018",
+                                "initPrice": 6623,
+                                "id": 17,
+                                "timeExit": 1525212000,
+                                "signalExit": "Bars",
+                                "profit": -13.966480446927374,
+                                "barIndexExit": 63
+                            },
+                            {
+                                "entrySignal": "BullTAR",
+                                "barIndex": 65,
+                                "exitPrice": 6804.93,
+                                "timeEnter": 1525384800,
+                                "timeTransformed": "Fri May 04 2018",
+                                "initPrice": 6671.5,
+                                "id": 18,
+                                "timeExit": 1525644000,
+                                "signalExit": "TP",
+                                "profit": 20.000000000000043,
+                                "barIndexExit": 66
+                            },
+                            {
+                                "entrySignal": "BearTAR",
+                                "barIndex": 75,
+                                "exitPrice": 6914,
+                                "timeEnter": 1526594400,
+                                "timeTransformed": "Fri May 18 2018",
+                                "initPrice": 6875,
+                                "id": 19,
+                                "timeExit": 1526940000,
+                                "signalExit": "Bars",
+                                "profit": -5.672727272727273,
+                                "barIndexExit": 77
+                            },
+                            {
+                                "entrySignal": "BullTAR",
+                                "barIndex": 79,
+                                "exitPrice": 6989.5,
+                                "timeEnter": 1527112800,
+                                "timeTransformed": "Thu May 24 2018",
+                                "initPrice": 6961.5,
+                                "id": 20,
+                                "timeExit": 1527458400,
+                                "signalExit": "Bars",
+                                "profit": 4.022121669180493,
+                                "barIndexExit": 81
+                            }
+                        ]
+
+                        console.log("DIVIDE_INTO_HOURS" ,  divideIntoHours(input) )
+                        console.log("DIVIDE_INTO_DAYS", divideIntoWeekDays(input))
+                        console.log("DIVIDE_INTO_MONTH_DAYS", divideIntoMonthDays(input))
+                        
+    let resultHours =  divideIntoHours(input)
+    let resultWeekDay =  divideIntoWeekDays(input)
+    let resultMonthDay =   divideIntoMonthDays(input) 
+
+    let arrayResultHours =  Object.keys(resultHours).map(key=> resultHours[key].length)
+    let arrayResultWeekDay = Object.keys(resultWeekDay).map(key => resultWeekDay[key].length)
+    let arrayResultMonthDay = Object.keys(resultMonthDay).map(key => resultMonthDay[key].length)
+
+                    // DIAGRAM
+                    const hours = document.getElementById('hoursChart');
+                    const week = document.getElementById('weekDaysChart');
+                    const month = document.getElementById('monthDaysChart');
+
+
+    let weekDays = ["Sunday" ,  "Monday" ,  "Tuesday" ,  "Wednesday" ,  "Thursday" ,  "Friday" ,  "Saturday"];                
+
+                    new Chart(hours, {
+                        type: 'bar',
+                        data: {
+                            labels: Object.keys(resultHours),
+                            datasets: [{
+                                label: '# Hours',
+                                data: arrayResultHours,
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            }
+                        }
+                    });
+
+        let labelsWeek = Object.keys(arrayResultWeekDay).map(key => weekDays[+key])
+        console.log("LABELS_WEEK", labelsWeek)
+                    new Chart(week, {
+                            type: 'bar',
+                            data: {
+                                labels: labelsWeek,
+                                datasets: [{
+                                    label: '# Week',
+                                    data: arrayResultWeekDay,
+                                    borderWidth: 1
+                                }]
+                            },
+                            options: {
+                                scales: {
+                                    y: {
+                                        beginAtZero: true
+                                    }
+                                }
+                            }
+                        });
+
+                  
+                        new Chart(month, {
+                                type: 'bar',
+                                data: {
+                                    labels: Object.keys(resultMonthDay) ,
+                                    datasets: [{
+                                        label: '# Month',
+                                        data: arrayResultMonthDay,
+                                        borderWidth: 1
+                                    }]
+                                },
+                                options: {
+                                    scales: {
+                                        y: {
+                                            beginAtZero: true
+                                        }
+                                    }
+                                }
+                            });
+
+
+                    
+                </script>
+
+
+
+    </body>
+
+</html>

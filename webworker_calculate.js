@@ -9,7 +9,8 @@ function buildResult(
   symbol_bars,
   symbol_bars_data,
   orderCall,
-  disabledCriterias
+  disabledCriterias,
+  enableSLbyReversal
 ) {
   let arrTranslated = arr.map((el) => alias[el]);
   let obj = {};
@@ -28,6 +29,7 @@ function buildResult(
   obj = {
     ...obj,
     orderCall: orderCall,
+    enableSLbyReversal,
     bars: symbol_bars_data,
   };
   return calculateProfit(obj);
@@ -36,6 +38,7 @@ function buildResult(
 let result_arr = [];
 let partialResult = [];
 let partialRange = undefined;
+let startTime = new Date().getTime();
 
 // TODO START HERE
 workerData.arr.forEach((arr, arrIndex) => {
@@ -58,6 +61,7 @@ workerData.arr.forEach((arr, arrIndex) => {
   //   }
   // }
 
+  console.log("BARS_LENGTH", workerData.symbol_bars_data.length);
   if (workerData.slice_ranges) {
     if (workerData.slice_ranges == "1M") {
       newArray = UtilsManager.splitMonth(workerData.symbol_bars_data);
@@ -65,6 +69,8 @@ workerData.arr.forEach((arr, arrIndex) => {
       newArray = UtilsManager.splitDay(workerData.symbol_bars_data);
     } else if (workerData.slice_ranges == "1W") {
       newArray = UtilsManager.splitWeek([...workerData.symbol_bars_data]);
+    } else if (workerData.slice_ranges == "1H") {
+      newArray = UtilsManager.splitHour(workerData.symbol_bars_data);
     }
   }
 
@@ -80,7 +86,8 @@ workerData.arr.forEach((arr, arrIndex) => {
         workerData.symbol_bars,
         el,
         workerData.orderCall,
-        workerData.disabledCriterias
+        workerData.disabledCriterias,
+        workerData.enableSLbyReversal
       ),
     });
   });
@@ -97,13 +104,18 @@ workerData.arr.forEach((arr, arrIndex) => {
       workerData.symbol_bars,
       workerData.symbol_bars_data,
       workerData.orderCall,
-      workerData.disabledCriterias
+      workerData.disabledCriterias,
+      workerData.enableSLbyReversal
     )
   );
 });
+
+let finishTime = new Date().getTime();
+let deltaSeconds = (finishTime - startTime) / 100;
 
 parentPort.postMessage({
   result: result_arr,
   partialResult,
   partialRange,
+  deltaSeconds: deltaSeconds,
 });

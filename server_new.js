@@ -1,15 +1,13 @@
 // import { parentPort, workerData } from "worker_threads";
 import { Worker, workerData, parentPort } from "worker_threads";
 
-import calculateProfit from "./calculateProfit.js";
-import async from "async";
-import open from "open";
 import path from "path";
 import { fileURLToPath } from "url";
 import bodyParser from "body-parser";
 import express from "express";
 import { createRequire } from "module";
-import fs from "fs";
+import WebSocket from "ws";
+import * as http from "http";
 
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
@@ -18,13 +16,6 @@ var app = express();
 var port = 4020;
 app.use(express.json());
 app.use(bodyParser.json({ extended: true }));
-app.listen(port, (err) => {
-  if (err) {
-    console.log("ERROR", err);
-  } else {
-    //open(`http://localhost:${port}/`);
-  }
-});
 app.use(express.static(__dirname));
 app.use(express.static("assets"));
 app.use(express.static("frontend"));
@@ -32,6 +23,18 @@ app.use(express.static("frontend"));
 app.get("/", (req, res) => {
   res.sendFile(__dirname + "/frontend/index.html");
 });
+
+app.get("/import", (req, res) => {
+  res.sendFile(__dirname + "/frontend/importPage.html");
+});
+
+function sendWebsocket(ws, msg) {
+  if (ws) {
+    ws.send(msg);
+  } else {
+    console.log("WEBSOCKET DOES NOT EXISTS");
+  }
+}
 
 app.post("/calculate", function (req, res) {
   let settings = req.body;
@@ -159,11 +162,16 @@ app.post("/calculate", function (req, res) {
   addParametr(settings.configSettings, "barsIgnore");
   addParametr(settings.configSettings, "barsIgnoreClose");
   addParametr(settings.configSettings, "profitPercantage");
+  addParametr(settings.configSettings, "lossPercantage");
+  //addParametr(settings.configSettings, "enableSLbyReversal");
 
   if (settings.configSettings.enableCCI) {
     configSettings.cciLength = settings.configSettings.cciLength;
     configSettings.cciValue = settings.configSettings.cciValue;
   }
+
+  //configSettings.enableSLbyReversal = [0];
+  // settings.configSettings.enableSLbyReversal;
 
   // CASE ADD CCI
 
@@ -220,6 +228,7 @@ app.post("/calculate", function (req, res) {
           symbol_bars,
           symbol_bars_data: allSymbolsBars[symbol_bars],
           orderCall: settings.configSettings.orderCall,
+          enableSLbyReversal: settings.configSettings.enableSLbyReversal,
           disabledCriterias,
           slice_ranges: settings.dataSettings.slice_ranges,
         },
@@ -229,9 +238,25 @@ app.post("/calculate", function (req, res) {
         // push
         // if arr.length == arrParams => send
 
+        let totalWorkers =
+          arrWorkers.length * Object.keys(allSymbolsBars).length;
+
+        //console.log("RESULT_PERC", loadedPeercentages);
+
         counter++;
+
+        let loadedPeercentages = (counter / totalWorkers) * 100;
+
+        sendWebsocket(WEBSOCKET, loadedPeercentages);
         results[symbol_bars].push(result.result);
         resultsPartials[symbol_bars].push(result.partialResult);
+        console.log(
+          "TOTAL WORKERS",
+          arrWorkers.length * Object.keys(allSymbolsBars).length,
+          counter,
+          result.deltaSeconds
+        );
+
         if (arrWorkers.length * Object.keys(allSymbolsBars).length <= counter) {
           Object.keys(results).forEach((result) => {
             let result_temp = [];
@@ -413,6 +438,37 @@ function buildParams(params) {
 
   return { resultModified, alias };
 }
+
+// CONNECTION WEBSOKET
+const server = http.createServer(app);
+
+server.listen(4020, () => {
+  console.log(`Server started on port ${server.address().port} :)`);
+});
+
+const wss = new WebSocket.Server({ server });
+let WEBSOCKET = undefined;
+
+wss.on("connection", (ws) => {
+  console.log("CONNECTED_NEW");
+  ws.send(`Hello, you sent -> `);
+  //connection is up, let's add a simple simple event
+  ws.on("message", (message) => {
+    //log the received message and send it back to the client
+    console.log("received: %s", message);
+    ws.send(`Hello, you sent -> ${message}`);
+  });
+
+  WEBSOCKET = ws;
+  //send immediatly a feedback to the incoming connection
+  setTimeout(() => {
+    ws.send("Hi there, I am a WebSocket server");
+  }, 2000);
+});
+
+// setTimeout(() => {
+//   sendWebsocket(WEBSOCKET, "HELOOO");
+// }, 5000);
 
 // func async count ()
 // delete first for eech

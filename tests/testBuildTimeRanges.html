@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+
+
+
+
+    <script>
+        let inputHours = [{
+                "entrySignal": "BullTAR",
+                "barIndex": 663,
+                "exitPrice": 12314.5,
+                "timeEnter": 1678871700,
+                "timeTransformed": "Wed Mar 15 2023",
+                "initPrice": 12326.75,
+                "id": 45,
+                "timeExit": 1678872000,
+                "signalExit": "SL",
+                "profit": -0.9937737035309389,
+                "barIndexExit": 664
+            }, {
+                "entrySignal": "BullTAR",
+                "barIndex": 668,
+                "exitPrice": 12314.5,
+                "timeEnter": 1678871700,
+                "timeTransformed": "Wed Mar 15 2023",
+                "initPrice": 12326.75,
+                "id": 45,
+                "timeExit": 1678872000,
+                "signalExit": "SL",
+                "profit": -0.9937737035309389,
+                "barIndexExit": 664
+            }]
+
+
+            function divideIntoHours (arr) {
+                let hours = {}
+                arr.forEach(el=>{
+                   let result =   new Date(+(el.timeEnter + "000")).getUTCHours();
+                   if(hours[result])
+                   {
+                       hours[result].push(result)
+                   }
+                   else {
+                    hours[result] = [el]
+                   }
+                })
+                return hours
+            }
+
+            function divideIntoWeekDays(arr){
+                let weekDays = {}
+                    arr.forEach(el => {
+                    let result = new Date(+(el.timeEnter + "000")).getUTCDay();
+                    if (weekDays[result]) {
+                        weekDays[result].push(result)
+                    }
+                    else {
+                        weekDays[result] = [el]
+                    }
+                   
+                })
+                 return weekDays;
+            }
+
+            function divideIntoMonthDays(arr) {
+                    let monthDays = {}
+                    arr.forEach(el => {
+                        let result = new Date(+(el.timeEnter + "000")).getDate();
+                        if (monthDays[result]) {
+                            monthDays[result].push(result)
+                        }
+                        else {
+                            monthDays[result] = [el]
+                        }
+                        return monthDays;
+                    })
+                        return monthDays;
+                }
+
+             
+            console.log("DIVIDE_HOURS" ,  divideIntoHours(inputHours))
+            console.log("DIVIDE_week_DAYS", divideIntoWeekDays(inputHours))
+            console.log("DIVIDE_month_DAYS", divideIntoMonthDays(inputHours))
+
+
+
+
+    </script>
+    
+</body>
+</html>

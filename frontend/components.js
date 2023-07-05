@@ -661,3 +661,65 @@ Ractive.components["multifield"] = Ractive.extend({
     });
   },
 });
+
+Ractive.components["pagination-c"] = Ractive.extend({
+  template: `
+  <nav aria-label="Page navigation example">
+  <ul class="pagination justify-content-center">
+    <li class="page-item {{#if isPrevDisabled}} disabled{{/if}}">
+      <a class="page-link" on-click="@this.clickPrev()">Previous</a>
+    </li>
+    <li class="page-item {{#if isNextDisabled}} disabled {{/if}}">
+      <a class="page-link" on-click="@this.clickNext()">
+        Next
+      </a>
+    </li>
+  </ul>
+</nav>`,
+  clickNext: function () {
+    if (this.get("actionNext")) {
+      this.get("actionNext")();
+    }
+  },
+  clickPrev: function () {
+    if (this.get("actionPrev")) {
+      this.get("actionPrev")();
+    }
+  },
+  data: {
+    actionNext: function () {
+      console.log("ACTION_NEXT");
+      this.set("currentPage", this.get("currentPage") + 1);
+    },
+    actionPrev: function () {
+      console.log("ACTION_PREV", this.get("currentPage"));
+      this.set("currentPage", this.get("currentPage") - 1);
+    },
+    isPrevDisabled: true,
+    isNextDisabled: false,
+    currentPage: 0,
+  },
+});
+
+Ractive.components["modal-c"] = Ractive.extend({
+  template: `
+  <div class="modal" tabindex="-1" id={{id}}>
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{{title}}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        {{yield}}
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary">Save changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+  `,
+  data: { title: "Modal Title", id: "modalId" },
+});

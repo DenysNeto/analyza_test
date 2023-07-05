@@ -12,10 +12,16 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ajv/8.12.0/ajv7.min.js"
     integrity="sha512-U2SW9Ihh3GF6F8gP8QgLS+I244xnM5pFCh3cigpw7bAzUDnKDlxdlFL4kjyXTle8SJl/tJ0gdnwd44Eb3hLG/Q=="
     crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="./components.js"></script>
+    <script src="index.js" type="module"></script>
+    <script src="./utils.js"></script>
     <title>Analyz UI</title>
 </head>
 <body style="width: 94%;margin: auto;">
+
+    <button onclick="location.pathname='/import'"    class="mb-2 d-grid col-8 mx-auto btn btn-primary"> IMPORT  </button>
+
     <div class="mb-2 d-grid col-8 mx-auto" id="exportSettings"></div>
     <div class="mt-2">
         <div class="mb-2 d-grid col-8 mx-auto"  id="fullSettings"></div>
@@ -25,8 +31,10 @@
     </div>
     
     <div id="debug"></div>
-    <div id="table-range" style="margin-bottom:1rem" ></div>
-    <div id="table-profit"></div>
+    <div id="main-output">
+        <div id="table-range" style="margin-bottom:1rem" ></div>
+        <div id="table-profit"></div>
+    </div>
 
     <!-- <div id="content" >
        
@@ -35,7 +43,46 @@
     <div id="toast">
     </div>  
 
+
+
     <script>
+
+        
+            window.mainRactive = new Ractive({
+                el: "#main-output",
+                template : ` 
+                {{#if isLoading}}
+                <!-- LOADER -->
+                    <div class="progress" role="progressbar" aria-label="Success example" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
+                        <div class="progress-bar bg-success" style="width: {{loaded}}%">{{Math.floor(loaded)}}%</div>
+                    </div> 
+                {{/if}}  
+        
+                <!-- TABLES -->
+                    <div id="table-range" style="margin-bottom:1rem" ></div>
+                    <div id="table-profit"></div>
+                  
+                `,
+                data : {
+                   loaded : 0 ,
+                   isLOading : false
+                }
+                }) 
+
+
+                setTimeout(()=>{
+                             window.ws.onmessage = (webSocketMessage) => {
+                        console.log("MESSAGE", webSocketMessage);
+                        window.mainRactive.set("loaded", webSocketMessage.data)
+                    };
+
+                } ,  3000)
+   
+
+
+
+
+
         fetch("/available_dates").then(res=>res.json()).then((res)=>{window.all_available_dates= res})
 
 
@@ -54,9 +101,10 @@
                 if(Object.keys(window.DATA_SETTINGS).length >= 3 &&  window.DATA_SETTINGS.timeframe !="" && Object.keys(window.CONFIG_SETTINGS).length >= 5){
                     ev.target.disabled = true
                    data = { dataSettings: window.DATA_SETTINGS, configSettings:window.CONFIG_SETTINGS}
-                   console.log("START_CALCULATE")
-                   window.tableProfit.set("fullData" ,  [])
-                   window.tableRanges.set("resultFull" ,  []) 
+                   window.tableProfit && window.tableProfit.set("fullData" ,  [])
+                   window.tableRanges && window.tableRanges.set("resultFull" ,  []) 
+                   window.mainRactive.set("isLoading" , true)
+                   window.mainRactive.set("loaded" ,  0)
                     fetch("/calculate", 
                     {
                         method:"POST", 
@@ -68,6 +116,7 @@
                             return response.json();
                         })
                         .then((data) => {
+                            window.mainRactive.set("isLoading", false)
                             console.log("FULL_DATA",data)
                             window.tableProfit.set("fullData" ,  data.results)
                             window.tableProfit.update("@global")
@@ -87,13 +136,11 @@
                                 return count;
                             }
 
-                            console.log("RESULT_LAST", partialResultOutput)
                             window.tableRanges.set("resultFull" ,  partialResultOutput);
                                  window.tableRanges.set("requestResultBeforeModifyFull", partialResultAllInstruments)
                             window.tableRanges.set("requestResultBeforeModifyPartial" ,  partialResultAllInstruments)
                        
                  
-                          //  console.log("BUILDED_OBJECT", buildedObject)
                         });
                 }
                 else{
@@ -129,27 +176,7 @@ let rangeAJV = {
 
 window.tableRanges = new Ractive({
     el : "#table-range", 
-    data : { resultFull : undefined ,  requestResultBeforeModifyPartial : undefined ,    result : undefined , isVisible : true , percent : 20 ,  percentArray : [
-            5,
-            10,
-            15,
-            20,
-            25,
-            30,
-            35,
-            40,
-            45,
-            50,
-            55,
-            60,
-            65,
-            70,
-            75,
-            80,
-            85,
-            90,
-            95,100
-        ] },
+    data : { resultFull : undefined , arrayFiledsAvoid : ["arrayStatistics" ,  "startDate" ,  "finishDate" ,  "cciLength" ,  "cciValue"] ,  pageItems : 10, currentPage : 0 ,   requestResultBeforeModifyPartial : undefined ,    result : undefined , isVisible : true , percent : 20 ,  percentArray: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100] },
     template : `
   
     {{#if resultFull}}
@@ -195,30 +222,38 @@ window.tableRanges = new Ractive({
         </thead>
         <tbody>
             {{#each Object.keys(result) }}
+                {{#if   currentPage * pageItems <= @index &&  @index <  currentPage * pageItems  + pageItems }}
                 <tr>
                     <!-- MAXIMIZE HERE -->
                     <td> <strong> ID : {{this}} </strong> <div> <strong> START DATE : </strong>  {{result[this].results[0].startDate }} </div>   <div> <strong>  END DATE : </strong>  {{result[this].results[0].finishDate }} </div>  <div> <strong>  BARS : {{result[this].results[0].bars }}  </strong>   </div>       </td>
-                    <td>{{#each result[this].resultArrayBarsClose }} <div> {{this.key}} - {{this.valuePercentage}} % </div> {{/each}}</td>
-                    <td>{{#each result[this].resultArrayBarsCloseReversal }} <div> {{this.key}} - {{this.valuePercentage}} % </div> {{/each}}  </td>
-                    <td>{{#each result[this].resultArrayBarsIgnore }} <div> {{this.key}} - {{this.valuePercentage}} % </div> {{/each}}</td>
-                    <td>{{#each result[this].resultArrayBarsIgnoreClose }} <div> {{this.key}} - {{this.valuePercentage}} % </div>{{/each}}</td>
-                    <td>{{#each result[this].resultArrayProfitPercentage }} <div> {{this.key}} - {{this.valuePercentage}} % </div>{{/each}}</td>
-                    <td>{{#each result[this].results[0] }} <div>{{@key}} : {{this }} </div> {{/each}} </td>
+                    <td>{{#each @this.maximizePercentage(result[this].resultArrayBarsClose)  }} <div> {{this.key}} - {{this.valuePercentage}} % </div> {{/each}}</td>
+                    <td>{{#each @this.maximizePercentage(result[this].resultArrayBarsCloseReversal) }} <div> {{this.key}} - {{this.valuePercentage}} % </div> {{/each}}  </td>
+                    <td>{{#each @this.maximizePercentage(result[this].resultArrayBarsIgnore) }} <div> {{this.key}} - {{this.valuePercentage}} % </div> {{/each}}</td>
+                    <td>{{#each @this.maximizePercentage(result[this].resultArrayBarsIgnoreClose) }} <div> {{this.key}} - {{this.valuePercentage}} % </div>{{/each}}</td>
+                    <td>{{#each @this.maximizePercentage(result[this].resultArrayProfitPercentage) }} <div> {{this.key}} - {{this.valuePercentage}} % </div>{{/each}}</td>
+                    <td>{{#each result[this].results[0] }} {{#if !arrayFiledsAvoid.includes(@key)  }} <div>{{@key}} : {{this }} </div>  {{/if}} {{/each}}  </td>
                     <td style="{{#if @this.countAverage(result[this].results) < 0 }} background-color:red {{/if}}" >{{@this.countAverage(result[this].results) }}  </td>
-                </tr> 
+                </tr>
+                {{/if}} 
             {{/each}}
         </tbody>
     </table>
+    BLA :: {{ (currentPage + 1) * pageItems }} SECOND  {{ Object.keys(result).length}} RESULT :: {{(currentPage + 1) * pageItems > Object.keys(result).length }}
+    <pagination-c currentPage={{currentPage}} isPrevDisabled={{currentPage == 0}} isNextDisabled={{(currentPage + 1) * pageItems > Object.keys(result).length }}  />
     {{/if}}
     </div>
     {{/if}}
-
                 `, 
+                maximizePercentage : function (array) {
+                    array = array.sort((a, b) => a.valuePercentage - b.valuePercentage).reverse()
+                    return array
+
+                },
                 switchTable : function() {
                     this.set("isVisible" ,  !this.get("isVisible"))
                 },
                 selectChanged : function(event){
-                    console.log("SELECTED CHANGED", event.target.value);
+         
                     this.set("selectedInstrument" , event.target.value);
                     this.set("result", this.get("resultFull")[event.target.value])
                 },
@@ -288,11 +323,11 @@ window.tableRanges = new Ractive({
                                     buildedObject[obj].results =  buildedObject[obj].results.slice(0 ,  countToTake)
                                 }
 
-                                let arrayBarsClose = buildedObject[obj].results.map(el => el.barsClose)
-                                let arrayBarsCloseReversal = buildedObject[obj].results.map(el => el.barsCloseReversal)
-                                let arrayBarsIgnore = buildedObject[obj].results.map(el => el.barsIgnore)
-                                let arrayBarsIgnoreClose = buildedObject[obj].results.map(el => el.barsIgnoreClose)
-                                let arrayProfitPercentage = buildedObject[obj].results.map(el => el.profitPercantage)
+                                let arrayBarsClose = buildedObject[obj].results.map(el => typeof el.barsClose == "number" ? el.barsClose : el.result.barsClose )
+                                let arrayBarsCloseReversal = buildedObject[obj].results.map(el =>   typeof el.barsCloseReversal == "number" ? el.barsCloseReversal : el.result.barsCloseReversal  )
+                                let arrayBarsIgnore = buildedObject[obj].results.map(el => typeof  el.barsIgnore == "number" ? el.barsIgnore : el.result.barsIgnore )
+                                let arrayBarsIgnoreClose = buildedObject[obj].results.map(el => typeof  el.barsIgnoreClose == "number" ? el.barsIgnoreClose : el.result.barsIgnoreClose )
+                                let arrayProfitPercentage = buildedObject[obj].results.map(el => typeof el.profitPercantage == "number" ? el.profitPercantage  : el.result.profitPercantage  )
 
                                 let setArrayBarsClose = Array.from(new Set(arrayBarsClose));
                                 let setArrayBarsCloseReversal = Array.from(new Set(arrayBarsCloseReversal));
@@ -306,7 +341,6 @@ window.tableRanges = new Ractive({
                                 let resultArrayBarsIgnoreClose = setArrayBarsIgnoreClose.map(el => { return { value: getOccurrence(arrayBarsIgnoreClose, el), key: el, valuePercentage: Math.floor(getOccurrence(arrayBarsIgnoreClose, el) / arrayBarsIgnoreClose.length * 100) } })
                                 let resultArrayProfitPercentage = setArrayProfitPercentage.map(el => { return { value: getOccurrence(arrayProfitPercentage, el), key: el, valuePercentage: Math.floor(getOccurrence(arrayProfitPercentage, el) / arrayProfitPercentage.length * 100) } })
 
-                                console.log("RESULT", resultArrayBarsClose, resultArrayBarsCloseReversal, resultArrayBarsIgnore, resultArrayBarsIgnoreClose, resultArrayProfitPercentage)
 
                                 buildedObject[obj].resultArrayBarsClose = resultArrayBarsClose;
                                 buildedObject[obj].resultArrayBarsCloseReversal = resultArrayBarsCloseReversal;
@@ -315,39 +349,22 @@ window.tableRanges = new Ractive({
                                 buildedObject[obj].resultArrayProfitPercentage = resultArrayProfitPercentage;
 
                                 partialResultOutput[instrument] = buildedObject
-
-                                console.log("BUILDED_OBJ", buildedObject)
                             })
-
-                            //READY RESULT => PASS TO COMPONENT
-
-                            console.log("BUILDED_RESULT", partialResultOutput)
                         })
-
-
-
                         return partialResultOutput;
-
                     }
 
 
                     this.observe("requestResultBeforeModifyPartial" ,  (newValue, oldValue)=>{
                              let result = countAndTakeBestPercentage({...newValue}, {...this.get("requestResultBeforeModifyFull")}, this.get("percent"))
                             this.set("resultFull" , result )
-                   
-                   
-
                     })
-
 
                     this.observe("percent" ,  ( newValue ,  oldValue)=>{
                         console.log("PERCENT")
                         let result = countAndTakeBestPercentage({...this.get("requestResultBeforeModifyPartial")}, {...this.get("requestResultBeforeModifyFull")}, this.get("percent"))
                         this.set("resultFull", result)
                     } ,  {init: false})
-
-                    
-                   
                 }
 })
 
@@ -362,10 +379,7 @@ window.tableProfit  = new Ractive({
         template:`
 
          <div  class="border border-3  border-primary" style=" padding:1rem" >
-
             {{#if (Array.isArray(fullData) && fullData.length == 0) || (typeof fullData === "object" && Object.keys(fullData).length == 0) }}
-        
-
                 <!-- LOADER --> 
                 <div class="d-flex justify-content-center" style="margin-top:30px">
                     <div class="spinner-grow" role="status" style="margin-right:5px">
@@ -422,6 +436,7 @@ window.tableProfit  = new Ractive({
                         <th scope="col">Profit %</th>
                         <th scope="col">CCI length</th>
                         <th scope="col">CCI value</th>
+                        <th scope="col">Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -436,6 +451,8 @@ window.tableProfit  = new Ractive({
                             <td>{{profitPercantage}}</td>  
                             <td>{{cciLength}}</td>
                             <td>{{cciValue}}</td>
+                            <td>
+                                <button type="button" class="btn btn-primary" on-click="@this.openModal(@index)"  data-bs-toggle="modal" data-bs-target="#exampleModal">Order graphs</button></td>
                         </tr> 
                     {{/each}}
                 </tbody>
@@ -449,13 +466,109 @@ window.tableProfit  = new Ractive({
                 </ul>
             </nav>
 
-       
-
+          
+            <!-- MODAL -->
+                <modal-c id="exampleModal" title="Enter Orders">
+                    <canvas id="hoursChart"></canvas>
+                    <canvas id="weekDaysChart"></canvas>
+                    <canvas id="monthDaysChart"></canvas>
+                </modal-c>
         {{/if}}
       
  </div>
 
         `,
+        openModal : function (index) {
+            console.log("OPEN_MODAL" , index , this.get("currentPageData")[index] )
+            if(window.chartHours)
+            {
+                window.chartHours.destroy()
+                window.chartWeek.destroy()
+                window.chartMonth.destroy()
+            }
+
+            // LOGIC ADD GRAPHICS
+            let input =  this.get("currentPageData")[index].arrayStatistics;
+                                            
+            let resultHours = window.UtilsManager.divideIntoHours(input)
+            let resultWeekDay = window.UtilsManager.divideIntoWeekDays(input)
+            let resultMonthDay = window.UtilsManager.divideIntoMonthDays(input)
+
+            let arrayResultHours = Object.keys(resultHours).map(key => resultHours[key].length)
+            let arrayResultWeekDay = Object.keys(resultWeekDay).map(key => resultWeekDay[key].length)
+            let arrayResultMonthDay = Object.keys(resultMonthDay).map(key => resultMonthDay[key].length)
+
+            // DIAGRAM
+            const hours = document.getElementById('hoursChart');
+            const week = document.getElementById('weekDaysChart');
+            const month = document.getElementById('monthDaysChart');
+
+            let weekDays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+            window.chartHours =  new Chart(hours, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(resultHours),
+                    datasets: [{
+                        label: '# Hours (UTC 0)',
+                        data: arrayResultHours,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            let labelsWeek = Object.keys(arrayResultWeekDay).map(key => weekDays[+key])
+            console.log("LABELS_WEEK", labelsWeek)
+            window.chartWeek =  new Chart(week, {
+                type: 'bar',
+                data: {
+                    labels: labelsWeek,
+                    datasets: [{
+                        label: '# Week',
+                        data: arrayResultWeekDay,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+
+            window.chartMonth = new Chart(month, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(resultMonthDay),
+                    datasets: [{
+                        label: '# Month',
+                        data: arrayResultMonthDay,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+                            
+
+
+
+        },
         switchTable: function () {
             this.set("isVisible", !this.get("isVisible"))
         },
@@ -520,7 +633,6 @@ window.tableProfit  = new Ractive({
             })
 
             this.observe("currentData" , (newValue,oldValue)=>{
-                console.log("CHANGE_DATA",newValue)
                 this.getCurrentPageData(this.get("currentPage"))
             })
 
@@ -619,7 +731,7 @@ window.dataRactive = new Ractive({
                     {field:"saturday_trading_hours", type:"multifield",condition:{type:"display",trigger:"isAdvancedTradingHours",value:true}, ajv:multifieldAJV},
                     {field:"symbols", multiple:true,type:"select", options:["NQ","ES","AAPL","AMZN","GOOGL","MSFT","NVDA","TSLA" ], ajv:{type:"array",minItems:1,items:[{type:"string",enum:["NQ","ES","AAPL","AMZN","GOOGL","MSFT","NVDA","TSLA" ]}],required:true}},
                     {field:"timeframe", type:"select", options:[{value:"",text:"Select timeframe..."},"1H","4H","1D","1W","1M","1min","3min","5min" ], ajv:{type:["string"],enum:["1H","4H","1D","1W","1M","1min","3min","5min"],required:true}},
-                    {field: "slice_ranges", label:"Slice Ranges" , type: "select", options: [{ value: "", text: "Select timeframe..." }, "1H", "4H", "1D", "1W", "1M"], ajv: { type: ["string"], enum: ["1H", "4H", "1D", "1W"]} },
+                    {field: "slice_ranges", label:"Slice Ranges" , type: "select", options: [{ value: "", text: "Select timeframe..." }, "1H", "4H", "1D", "1W", "1M"], ajv: { type: ["string"], enum: ["1H", "4H", "1D", "1W" , "1M"]} },
                     {field:"date", type:"date",range:true,ajv:{type:"object",properties:{from: {type: "string"},to:{type:"string"},required:true}}}
                 ]
             },
@@ -655,8 +767,10 @@ window.configRactive = new Ractive({
                     {field:"barsIgnore",label:"Bars Ignore(After Open Order)", type:"range",tooltip:"How much bars ignore after last trade opened",ajv:rangeAJV},
                     {field:"barsIgnoreClose",label:"Bars Ignore(After Close Order)", type:"range",tooltip:"How much bars ignore after last trade closed?",ajv:rangeAJV},
                     {field:"profitPercantage",label:"Profit", type:"range", steps:true,ajv:rangeAJV},
+                    {field:"lossPercantage", label: "SL(%)", type: "range", steps: true, ajv: rangeAJV },
+                    {field: "enableSLbyReversal", label: "Enable SL by Reversal?", noLabel:true ,  type: "checkbox", defaultValue: true, ajv: { type: "boolean" } },
                     {field:"orderCall",label:"Order Call", type:"select", options:["Both","Long Only","Short Only"],ajv:{type:"string"}},
-                    { field: "enableCCI", label: "Enable CCI?", type: "checkbox" , defaultValue : true ,ajv:{type:"boolean"}},
+                    { field: "enableCCI", label: "Enable CCI?", type: "checkbox" , noLabel:true, defaultValue : true ,ajv:{type:"boolean"}},
                     // TODO range
                     { field: "cciLength", label: "CCI Length", type: "range",ajv:rangeAJV },
                     { field: "cciValue", label: "CCI Value", type: "range"  ,  selected_step : 10,ajv:rangeAJV },
