@@ -114,8 +114,8 @@ let finishTime = new Date().getTime();
 let deltaSeconds = (finishTime - startTime) / 100;
 
 parentPort.postMessage({
-  result: result_arr,
-  partialResult,
-  partialRange,
+  // result: result_arr,
+  // partialResult,
+  // partialRange,
   deltaSeconds: deltaSeconds,
 });
