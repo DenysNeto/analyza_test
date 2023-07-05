@@ -9,7 +9,7 @@
   //   };
 
   async function connectToServer() {
-    const ws = new WebSocket("ws://localhost:4020/ws");
+    const ws = new WebSocket("ws://https://fff-dennetesin.b4a.run//ws");
     return new Promise((resolve, reject) => {
       const timer = setInterval(() => {
         if (ws.readyState === 1) {
