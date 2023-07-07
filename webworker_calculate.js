@@ -32,6 +32,8 @@ function buildResult(
     enableSLbyReversal,
     bars: symbol_bars_data,
   };
+
+  console.log("OBJ", obj);
   return calculateProfit(obj);
 }
 
