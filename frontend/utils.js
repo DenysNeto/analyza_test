@@ -1,5 +1,4 @@
-window.UtilsManager = 
-{
+window.UtilsManager = {
   divideIntoHours: (arr) => {
     let hours = {};
     arr.forEach((el) => {
@@ -44,5 +43,14 @@ window.UtilsManager =
     var count = 0;
     array.forEach((v) => v === value && count++);
     return count;
-  }
-}
+  },
+  maximizeByField: (array, field, direction) => {
+    // if direction == "up" => from minimum to maximum
+    // if direction == "down" => from  maximum to minimum
+    if (direction == "down") {
+      return array.sort((a, b) => a[field] - b[field]).reverse();
+    } else {
+      return array.sort((a, b) => a[field] - b[field]);
+    }
+  },
+};

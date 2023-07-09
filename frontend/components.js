@@ -288,9 +288,10 @@ Ractive.components["date-input"] = Ractive.extend({
     this.root.observe(
       "formData.symbols formData.timeframe",
       (newValue, oldValue, path) => {
+        if (newValue == undefined) return;
         let symbol = this.root.get("formData.symbols.0");
         let timeframe = this.root.get("formData.timeframe");
-        console.log("CHANGE_____", newValue, symbol, timeframe);
+
         let min = all_available_dates[symbol][timeframe].from;
         let max = all_available_dates[symbol][timeframe].to;
 

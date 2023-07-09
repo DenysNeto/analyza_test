@@ -63,14 +63,13 @@ workerData.arr.forEach((arr, arrIndex) => {
   //   }
   // }
 
-  console.log("BARS_LENGTH", workerData.symbol_bars_data.length);
   if (workerData.slice_ranges) {
     if (workerData.slice_ranges == "1M") {
       newArray = UtilsManager.splitMonth(workerData.symbol_bars_data);
     } else if (workerData.slice_ranges == "1D") {
       newArray = UtilsManager.splitDay(workerData.symbol_bars_data);
     } else if (workerData.slice_ranges == "1W") {
-      newArray = UtilsManager.splitWeek([...workerData.symbol_bars_data]);
+      newArray = UtilsManager.splitWeek(workerData.symbol_bars_data);
     } else if (workerData.slice_ranges == "1H") {
       newArray = UtilsManager.splitHour(workerData.symbol_bars_data);
     }

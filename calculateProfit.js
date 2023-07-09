@@ -28,6 +28,10 @@ export default function calculateProfit(config) {
   let open = bars_data.map((el) => el.open);
   let time = bars_data.map((el) => el.time);
 
+  let startPoint = bars_data[0].open;
+  let endPoint = bars_data[bars_data.length - 1].close;
+  let instrumentDelta = ((endPoint - startPoint) / startPoint) * 100;
+
   // VARIABLES
   // main
   var arrayStatistics = [];
@@ -665,10 +669,14 @@ export default function calculateProfit(config) {
   // console.log("Orders status: ", closed);
   delete config["bars"];
 
+  let countProfitDelta = ((Math.floor(profit) + order) / order) * 100 - 100;
+  countProfitDelta = Math.round(countProfitDelta * 100) / 100;
   return {
     profit: Math.floor(profit),
+    profitDelta: countProfitDelta,
     startDate: new Date(+(time[0] + "000")).toLocaleString(),
     finishDate: new Date(+(time[time.length - 1] + "000")).toLocaleString(),
+    instrumentDelta: instrumentDelta,
     orders: arrayStatistics.length,
     arrayStatistics: arrayStatistics,
     bars: bars_data.length,

@@ -235,6 +235,10 @@ app.post("/calculate", function (req, res) {
       });
 
       worker.once("message", (result) => {
+        // TODO COMMENT AFTER
+        // resultsPartials[symbol_bars] = [];
+        // results[symbol_bars] = [];
+
         // push
         // if arr.length == arrParams => send
 

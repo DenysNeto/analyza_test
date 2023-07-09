@@ -4,15 +4,15 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://getbootstrap.com/docs/5.3/assets/css/docs.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/ractive"></script>
-    <script src="https://kit.fontawesome.com/e45f08485e.js" crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ajv/8.12.0/ajv7.min.js"
-    integrity="sha512-U2SW9Ihh3GF6F8gP8QgLS+I244xnM5pFCh3cigpw7bAzUDnKDlxdlFL4kjyXTle8SJl/tJ0gdnwd44Eb3hLG/Q=="
-    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <link href="./dependencies/bootstrap.css" rel="stylesheet">
+    <link href="./dependencies/docs.css" rel="stylesheet">
+
+    <script src="./dependencies/ajv.js"></script>
+    <script src="./dependencies/bootstrap.js"></script>
+    <script src="./dependencies/chart.js"></script>
+   <!-- <script src="./dependencies/fontawesomeKit.js"></script>--> 
+    <script src="./dependencies/ractive.js"></script>
     <script src="./components.js"></script>
     <script src="index.js" type="module"></script>
     <script src="./utils.js"></script>
@@ -176,17 +176,17 @@ let rangeAJV = {
 
 window.tableRanges = new Ractive({
     el : "#table-range", 
-    data : { resultFull : undefined , arrayFiledsAvoid : ["arrayStatistics" ,  "startDate" ,  "finishDate" ,  "cciLength" ,  "cciValue"] ,  pageItems : 10, currentPage : 0 ,   requestResultBeforeModifyPartial : undefined ,    result : undefined , isVisible : true , percent : 20 ,  percentArray: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100] },
+    data : { resultFull : undefined , arrayFiledsAvoid : ["arrayStatistics" ,  "startDate" ,  "finishDate" ,  "cciLength" ,  "cciValue"] ,  pageItems : 10, currentPage : 0 ,   requestResultBeforeModifyPartial : undefined ,    result : undefined , isVisible : false , percent : 20 ,  percentArray: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100] },
     template : `
   
     {{#if resultFull}}
     <div class="border border-3  border-primary"style="padding:1rem">
         <div class="shadow p-3 mb-5 bg-body-tertiary rounded" style="text-align:center"> Table Ranges </div>
         <div class="shadow-sm p-3 mb-5 bg-body-tertiary rounded"><h4>Info:</h4>
-            <strong> Total Ranges : {{Object.keys(result).length}} </strong>  ,
-            <strong> Slice Range :   {{@global.DATA_SETTINGS.slice_ranges}} </strong> ,
-            <strong> Best Percent :   {{percent}} </strong> ,
-            <strong> Variants : {{result.1.results.length}} </strong> 
+            <div><strong> Total Ranges : {{Object.keys(result).length}} </strong></div> 
+            <div><strong> Slice Range :   {{@global.DATA_SETTINGS.slice_ranges}} </strong></div> 
+            <div><strong> Best Percent :   {{percent}} </strong> </div>
+            <div><strong> Variants : {{result.1.results.length}} </strong> </div>
         </div>
         
     <button on-click="@this.switchTable()" style="width:100%" type="button" class="btn btn-success">{{#if isVisible }} Hide {{else}}  Show {{/if}} table</button>
@@ -238,7 +238,6 @@ window.tableRanges = new Ractive({
             {{/each}}
         </tbody>
     </table>
-    BLA :: {{ (currentPage + 1) * pageItems }} SECOND  {{ Object.keys(result).length}} RESULT :: {{(currentPage + 1) * pageItems > Object.keys(result).length }}
     <pagination-c currentPage={{currentPage}} isPrevDisabled={{currentPage == 0}} isNextDisabled={{(currentPage + 1) * pageItems > Object.keys(result).length }}  />
     {{/if}}
     </div>
@@ -253,7 +252,6 @@ window.tableRanges = new Ractive({
                     this.set("isVisible" ,  !this.get("isVisible"))
                 },
                 selectChanged : function(event){
-         
                     this.set("selectedInstrument" , event.target.value);
                     this.set("result", this.get("resultFull")[event.target.value])
                 },
@@ -285,13 +283,11 @@ window.tableRanges = new Ractive({
                     function countAndTakeBestPercentage (partialResultAllInstruments , fullResult , percent  ) {
                         let partialResultOutput = {}
 
-                        
                         function getOccurrence(array, value) {
                             var count = 0;
                             array.forEach((v) => (v === value && count++));
                             return count;
                         }
-
 
                         Object.keys(partialResultAllInstruments).forEach(instrument => {
                             let partialResults = partialResultAllInstruments[instrument];
@@ -361,7 +357,6 @@ window.tableRanges = new Ractive({
                     })
 
                     this.observe("percent" ,  ( newValue ,  oldValue)=>{
-                        console.log("PERCENT")
                         let result = countAndTakeBestPercentage({...this.get("requestResultBeforeModifyPartial")}, {...this.get("requestResultBeforeModifyFull")}, this.get("percent"))
                         this.set("resultFull", result)
                     } ,  {init: false})
@@ -371,13 +366,14 @@ window.tableRanges = new Ractive({
 window.tableProfit  = new Ractive({
         el: "#table-profit",
         data : {
-            selectConfig:{field:"symbol", options:[] ,noLabel : true ,  isVisible: true },
+            percentArray: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100],
+            percent : 100,
+            selectConfig:{field:"symbol", options:[] ,noLabel : false ,  isVisible: true },
             currentData:[],
             currentPage:0,
             currentPageData:[],
             filterState:{profit:true}},
         template:`
-
          <div  class="border border-3  border-primary" style=" padding:1rem" >
             {{#if (Array.isArray(fullData) && fullData.length == 0) || (typeof fullData === "object" && Object.keys(fullData).length == 0) }}
                 <!-- LOADER --> 
@@ -393,22 +389,36 @@ window.tableProfit  = new Ractive({
                     </div>
                 </div>
             {{elseif (Array.isArray(fullData) && fullData.length>0) || (typeof fullData === "object" && Object.keys(fullData).length > 0) }}
-
-
-         
                 <div class="shadow p-3 mb-5 bg-body-tertiary rounded" style="text-align:center"> Table Profit</div>
+                    <!-- INFO -->
+                    <div class="shadow-sm p-3 mb-5 bg-body-tertiary rounded"><h4>Info:</h4>
+                        <div> <strong> Total Results : {{currentPageData.length}} </strong> </div>  
+                        <div> <strong> Orders call :  {{currentData[0].orderCall}} </strong> </div>
+                        <div> <strong> Dates (yyyy-mm-dd) :  {{@global.DATA_SETTINGS.date.from}} - {{@global.DATA_SETTINGS.date.to}}</strong></div>
+                        <div><strong>Timeframe : {{@global.DATA_SETTINGS.timeframe}} </strong> </div>   
+                        <div> <strong>Average Profit :  </strong> </div>
+                        <div> <strong> Instrument's delta(%) : {{ Math.round((currentPageData[0].instrumentDelta + Number.EPSILON) * 100) / 100   }} </strong>  </div>                 
+                    </div>
+
+
                 <button on-click="@this.switchTable()" style="width:100%" type="button" class="btn btn-success">{{#if isVisible }} Hide {{else}}  Show {{/if}} table</button>
             
 
             <!-- SETTINGS -->    
             {{#if isVisible}}    
-                <div style="display:flex;justify-content:space-between;align-items: center; padding:1rem;" class="border"  >
+                <div  class="border"  >
                     <div style="width:100%" >
                         <select-input config={{selectConfig}} value={{symbolValue}} />
                     </div>
+                    <div>Best Percent(%) </div>
+                    <select  class="form-select"  value={{percent}}>
+                        {{#each percentArray }}
+                            <option value={{this}}>{{this}}</option>
+                        {{/each}}
+                    </select>   
                     <div>
                         {{#if symbolValue && symbolValue != ""}}
-                            <button type="button" class="btn btn-outline-primary" on-click="@this.sendToExport(fullData[symbolValue],symbolValue, 'csv')"  data-bs-toggle="modal" data-bs-target="#export_file_modal" ><i class="fa-solid fa-file-arrow-down"></i></button>
+                            <button type="button"  style="width:100%"   class="btn btn-outline-primary" on-click="@this.sendToExport(fullData[symbolValue],symbolValue, 'csv')"  data-bs-toggle="modal" data-bs-target="#export_file_modal">Export</button>
                         {{/if}}
                     </div>
                 </div>
@@ -419,12 +429,7 @@ window.tableProfit  = new Ractive({
             <!-- START TABLE -->  
 
             {{#if currentPageData.length>0 && symbolValue && symbolValue != "" && isVisible }}
-            <table class="table  table-bordered caption-top table-striped align-middle ">
-                <caption>
-                    <div><strong> Orders call : </strong> {{currentData[0].orderCall}}</div>
-                    <div><strong> Dates : </strong> {{@global.DATA_SETTINGS.date.from}} - {{@global.DATA_SETTINGS.date.to}}</div>
-                </caption>
-   
+            <table class="table  table-bordered caption-top table-striped align-middle ">  
                 <thead class="table-light">
                     <tr>
                         <th scope="col" on-click=@this.filterData("profit") ><div style="display:flex;justify-content:space-between"><span>Profit</span><span>{{#if filterState.profit}}<i class="fa-solid fa-arrow-up"></i> {{else}} <i class="fa-solid fa-arrow-down"></i>{{/if}}</span></div></th>
@@ -630,6 +635,24 @@ window.tableProfit  = new Ractive({
                     this.set("currentData" , this.get("fullData")[newValue] || [])
                     this.set("currentPage", 0)
                 }
+            })
+
+            this.observe("percent" , (newValue)=>{
+                console.log("percentChanged")
+                // TODO FINISH
+        
+              let arrayCurrentData =   window.UtilsManager.maximizeByField([...this.get("fullData")[this.get("symbolValue")]] , "profit" ,  "down");
+                      console.log("CURR_DATA_FIRST" ,  arrayCurrentData.length)
+
+              let countToTake = Math.floor(arrayCurrentData.length / 100 * +newValue)
+              arrayCurrentData = arrayCurrentData.slice(0, countToTake);
+              console.log(arrayCurrentData.length);
+              this.set("currentData" ,  [])
+              this.set("currentData" ,  [...arrayCurrentData])
+
+
+              
+                   
             })
 
             this.observe("currentData" , (newValue,oldValue)=>{
