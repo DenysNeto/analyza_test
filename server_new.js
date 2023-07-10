@@ -28,6 +28,10 @@ app.get("/import", (req, res) => {
   res.sendFile(__dirname + "/frontend/importPage.html");
 });
 
+app.get("/division", (req, res) => {
+  res.sendFile(__dirname + "/frontend/divisionPage.html");
+});
+
 function sendWebsocket(ws, msg) {
   if (ws) {
     ws.send(msg);
@@ -35,6 +39,232 @@ function sendWebsocket(ws, msg) {
     console.log("WEBSOCKET DOES NOT EXISTS");
   }
 }
+
+app.post("/division_calculate", function (req, res) {
+  let settings = req.body;
+  // GET BARS DATA
+  let timeframes = [...settings.dataSettings.timeframes];
+  let symbol_bars = settings.dataSettings.symbol;
+  let allSymbolsBars = {};
+
+  let calculate_log = {
+    time: new Date().toString(),
+    timestamp: new Date().getTime(),
+    settings: settings,
+  };
+
+  timeframes.forEach(async (tf) => {
+    let path = `./assets/JSON/${symbol_bars}/${symbol_bars}, ${tf}.json`;
+    let bars_data = require(path);
+
+    //FILTER BARS BY DATE RANGE
+    let date_from = new Date(settings.dataSettings.date.from).getTime();
+    let date_to = new Date(settings.dataSettings.date.to).getTime();
+    bars_data = bars_data.filter(
+      (el) => +el.time + "000" >= date_from && +el.time + "000" < date_to
+    );
+
+    //FILTER BARS BY TRADING HOURS
+    if (tf != "1D" && tf != "1W" && tf != "1M") {
+      let gmt = settings.dataSettings.timezone;
+      gmt = Number(gmt.replace("GMT", ""));
+      //ADD LOGIC UTC
+      bars_data = bars_data.filter((el, index) => {
+        let date = new Date(Number(el.time + "000"));
+        let day = date.getDay();
+        let hours = date.getUTCHours() + gmt;
+        if (hours < 0) {
+          hours = 24 + hours;
+          day--;
+        } else if (hours > 24) {
+          hours = hours - 24;
+          day++;
+        }
+        hours = hours.toString();
+        if (hours.length == 1) {
+          hours = "0" + hours;
+        }
+
+        let minutes = date.getMinutes();
+        minutes = minutes.toString();
+        if (minutes.length == 1) {
+          minutes += "0";
+        }
+        let session = `${hours}${minutes}`;
+        let inSession = false;
+
+        let th = settings.dataSettings.trading_hours;
+        if (settings.dataSettings.isAdvancedTradingHours) {
+          let tradingHoursDays = [
+            settings.dataSettings.sunday_trading_hours,
+            settings.dataSettings.monday_trading_hours,
+            settings.dataSettings.tuesday_trading_hours,
+            settings.dataSettings.wednesday_trading_hours,
+            settings.dataSettings.thursday_trading_hours,
+            settings.dataSettings.friday_trading_hours,
+            settings.dataSettings.saturday_trading_hours,
+          ];
+          th = tradingHoursDays[day];
+        }
+        th.forEach((th_el) => {
+          if (th_el.from <= session && th_el.to >= session) {
+            inSession = true;
+          }
+        });
+        if (inSession) {
+          return el;
+        }
+      });
+    }
+
+    // bars_data = bars_data.reverse();
+    //NEED TO HANDLE ERROR IF BARS_DATA IS EMPTY
+    if (bars_data.length > 0) {
+      allSymbolsBars[tf] = bars_data;
+    }
+  });
+
+  let configSettings = {};
+  // let configSettings = {
+  //   barsClose: settings.configSettings.barsClose,
+  //   barsCloseReversal: settings.configSettings.barsCloseReversal,
+  //   barsIgnore: settings.configSettings.barsIgnore,
+  //   profitPercantage: settings.configSettings.profitPercantage,
+  // };
+  let disabledCriterias = [];
+
+  let addParametr = (fullObj, key) => {
+    if (!(fullObj[key].length == 1 && fullObj[key][0] == 0)) {
+      configSettings[key] = fullObj[key];
+    } else {
+      disabledCriterias.push(key);
+    }
+  };
+
+  // ADD PARAMETRS
+  addParametr(settings.configSettings, "barsClose");
+  addParametr(settings.configSettings, "barsCloseReversal");
+  addParametr(settings.configSettings, "barsIgnore");
+  addParametr(settings.configSettings, "barsIgnoreClose");
+  addParametr(settings.configSettings, "profitPercantage");
+  addParametr(settings.configSettings, "lossPercantage");
+  //addParametr(settings.configSettings, "enableSLbyReversal");
+
+  if (settings.configSettings.enableCCI) {
+    configSettings.cciLength = settings.configSettings.cciLength;
+    configSettings.cciValue = settings.configSettings.cciValue;
+  }
+
+  //configSettings.enableSLbyReversal = [0];
+  // settings.configSettings.enableSLbyReversal;
+
+  // CASE ADD CCI
+
+  // CHECK profit => if profit == 0  => delete from params
+
+  // BUILD ALL CASES PARAMS
+  console.time("Build_params");
+  let fullResult = buildParams(configSettings); // less options => add profit : 0 ,
+  let arrParams = fullResult.resultModified;
+
+  console.timeEnd("Build_params");
+  console.log("ARR_PARAMS", arrParams.length);
+  let alias = fullResult.alias;
+  //let results = [];
+  let results = {};
+  let resultsPartials = {};
+
+  // PREPARE CASES
+  let counter = 0;
+  let temp = Math.floor(arrParams.length / 10);
+  let workerNumber = temp < 200 ? 200 : temp;
+  let workerCounter = 0;
+  let arrWorkers = [];
+  arrParams.forEach((el, index) => {
+    if (index % workerNumber == 0) {
+      arrWorkers.push(
+        arrParams.slice(workerCounter, workerCounter + workerNumber)
+      );
+      workerCounter += workerNumber;
+    }
+  });
+
+  console.log("COUNT", arrWorkers.length);
+  console.time("Total_calc");
+
+  Object.keys(allSymbolsBars).forEach((tf, index) => {
+    console.log("ALL_SYMBOLS", symbol_bars);
+
+    let startPartNumber = index * arrParams.length;
+
+    if (!results[symbol_bars]) {
+      results[symbol_bars] = [];
+    }
+
+    if (!resultsPartials[symbol_bars]) {
+      resultsPartials[symbol_bars] = [];
+    }
+
+    console.log("CONFIG_SETTINGS", settings.dataSettings.slice_ranges);
+
+    arrWorkers.forEach((arr, arrIndex) => {
+      let worker = new Worker("./webworker_division_calculate.js", {
+        workerData: {
+          arr,
+          alias,
+          configSettings,
+          symbol_bars,
+          symbol_bars_data: allSymbolsBars[tf],
+          orderCall: settings.configSettings.orderCall,
+          enableSLbyReversal: settings.configSettings.enableSLbyReversal,
+          disabledCriterias,
+        },
+      });
+
+      worker.once("message", (result) => {
+        let totalWorkers =
+          arrWorkers.length * Object.keys(allSymbolsBars).length;
+
+        //console.log("RESULT_PERC", loadedPeercentages);
+
+        counter++;
+
+        let loadedPeercentages = (counter / totalWorkers) * 100;
+
+        sendWebsocket(WEBSOCKET, loadedPeercentages);
+
+        sendWebsocket(WEBSOCKET, JSON.stringify(result));
+        sendWebsocket(
+          WEBSOCKET,
+          (
+            arrWorkers.length * Object.keys(allSymbolsBars).length <=
+            counter
+          ).toString()
+        );
+
+        results[symbol_bars].push(result.result);
+        resultsPartials[symbol_bars] = result.partialResult;
+        // resultsPartials[symbol_bars].push(result.partialResult);
+        console.log(
+          "TOTAL WORKERS",
+          arrWorkers.length * Object.keys(allSymbolsBars).length,
+          counter,
+          result.deltaSeconds
+        );
+
+        if (arrWorkers.length * Object.keys(allSymbolsBars).length <= counter) {
+          // setTimeout(()=>{})
+          res.json({});
+
+          console.timeEnd("Total_calc");
+
+          //       console.timeEnd(`CALC_${symbol_bars}`);
+        }
+        console.log(`Worker : `, counter);
+      });
+    });
+  });
+});
 
 app.post("/calculate", function (req, res) {
   let settings = req.body;
@@ -251,7 +481,11 @@ app.post("/calculate", function (req, res) {
 
         let loadedPeercentages = (counter / totalWorkers) * 100;
 
+        sendWebsocket(WEBSOCKET, { result });
+
+        // TODO CHECK
         sendWebsocket(WEBSOCKET, loadedPeercentages);
+
         results[symbol_bars].push(result.result);
         resultsPartials[symbol_bars].push(result.partialResult);
         console.log(

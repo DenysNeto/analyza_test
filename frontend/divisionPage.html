@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link href="./dependencies/bootstrap.css" rel="stylesheet">
+    <link href="./dependencies/docs.css" rel="stylesheet">
+
+    <script src="./dependencies/ajv.js"></script>
+    <script src="./dependencies/bootstrap.js"></script>
+    <script src="./dependencies/chart.js"></script>
+    <!-- <script src="./dependencies/fontawesomeKit.js"></script>-->
+    <script src="./dependencies/ractive.js"></script>
+    <script src="./components.js"></script>
+    <script src="index.js" type="module"></script>
+    <script src="./utils.js"></script>
+    <title>Dvision UI</title>
+</head>
+
+<body style="width: 94%;margin: auto;">
+
+    <button onclick="location.pathname='/'" class="mb-2 d-grid col-8 mx-auto btn btn-primary"> BACK </button>
+
+    <div class="mb-2 d-grid col-8 mx-auto" id="exportSettings"></div>
+    <div class="mt-2">
+        <div class="mb-2 d-grid col-8 mx-auto" id="fullSettings"></div>
+        <div class="mb-2 d-grid col-8 mx-auto" id="dataSettings"></div>
+        <div class="mb-2 d-grid col-8 mx-auto" id="configSettings"></div>
+        <button id="btn_calculate" class="mb-2 d-grid col-8 mx-auto btn btn-primary"> CALCULATE </button>
+    </div>
+
+    <div id="debug"></div>
+    <div id="main-output">
+        <div id="table-range" style="margin-bottom:1rem"></div>
+        <div id="table-profit"></div>
+    </div>
+
+    <!-- <div id="content" >
+       
+    </div> -->
+
+    <div id="toast">
+    </div>
+
+
+
+    <script>
+
+               let multifieldAJV =
+                {
+                    type: "array",
+                    items: [{
+                        type: "object",
+                        properties: {
+                            from: { type: "string" },
+                            to: { type: "string" }
+                        }
+                    }]
+                }
+
+                let rangeAJV = {
+                    type: "array",
+                    items: [{ type: "number", minimum: 0 }]
+                }
+            
+
+
+
+        window.mainRactive = new Ractive({
+            el: "#main-output",
+            template: ` 
+                {{#if isLoading}}
+                <!-- LOADER -->
+                    <div class="progress" role="progressbar" aria-label="Success example" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
+                        <div class="progress-bar bg-success" style="width: {{loaded}}%">{{Math.floor(loaded)}}%</div>
+                    </div> 
+                {{/if}}  
+        
+                <!-- TABLES -->
+                    <div id="table-range" style="margin-bottom:1rem" ></div>
+                    <div id="table-profit"></div>
+                  
+                `,
+            data: {
+                loaded: 0,
+                isLOading: false
+            }
+        })
+
+
+
+
+        window.dataRactive = new Ractive({
+                el: "#dataSettings",
+                data: {
+                    formData: {},
+                    global_variable: "DATA_SETTINGS",
+                    fields: [
+                        { field: "timezone", type: "select", options: ["GMT-12", "GMT-11", "GMT-10", "GMT-9", "GMT-8", "GMT-7", "GMT-6", "GMT-5", "GMT-4", "GMT-3", "GMT-2", "GMT-1", "GMT0", "GMT+1", "GMT+2", "GMT+3", "GMT+4", "GMT+5", "GMT+6", "GMT+7", "GMT+8", "GMT+9", "GMT+10", "GMT+11", "GMT+12", "GMT+13"], ajv: { type: "string", enum: ["GMT-12", "GMT-11", "GMT-10", "GMT-9", "GMT-8", "GMT-7", "GMT-6", "GMT-5", "GMT-4", "GMT-3", "GMT-2", "GMT-1", "GMT0", "GMT+1", "GMT+2", "GMT+3", "GMT+4", "GMT+5", "GMT+6", "GMT+7", "GMT+8", "GMT+9", "GMT+10", "GMT+11", "GMT+12", "GMT+13"] } },
+                        { field: "trading_hours", label: "Trading Hours", type: "multifield", condition: { type: "disable", trigger: "isAdvancedTradingHours", value: false }, ajv: multifieldAJV },
+                        { field: "isAdvancedTradingHours", label: "Advanced trading hours", noLabel: true, type: "checkbox", defaultValue: false, ajv: { type: "boolean" } },
+                        { field: "sunday_trading_hours", type: "multifield", condition: { type: "display", trigger: "isAdvancedTradingHours", value: true }, ajv: multifieldAJV },
+                        { field: "monday_trading_hours", type: "multifield", condition: { type: "display", trigger: "isAdvancedTradingHours", value: true }, ajv: multifieldAJV },
+                        { field: "tuesday_trading_hours", type: "multifield", condition: { type: "display", trigger: "isAdvancedTradingHours", value: true }, ajv: multifieldAJV },
+                        { field: "wednesday_trading_hours", type: "multifield", condition: { type: "display", trigger: "isAdvancedTradingHours", value: true }, ajv: multifieldAJV },
+                        { field: "thursday_trading_hours", type: "multifield", condition: { type: "display", trigger: "isAdvancedTradingHours", value: true }, ajv: multifieldAJV },
+                        { field: "friday_trading_hours", type: "multifield", condition: { type: "display", trigger: "isAdvancedTradingHours", value: true }, ajv: multifieldAJV },
+                        { field: "saturday_trading_hours", type: "multifield", condition: { type: "display", trigger: "isAdvancedTradingHours", value: true }, ajv: multifieldAJV },
+                        { field: "symbols", multiple: true, type: "select", options: ["NQ", "ES", "AAPL", "AMZN", "GOOGL", "MSFT", "NVDA", "TSLA"], ajv: { type: "array", minItems: 1, items: [{ type: "string", enum: ["NQ", "ES", "AAPL", "AMZN", "GOOGL", "MSFT", "NVDA", "TSLA"] }], required: true } },
+                        { field: "timeframe", type: "select", options: [{ value: "", text: "Select timeframe..." }, "1H", "4H", "1D", "1W", "1M", "1min", "3min", "5min"], ajv: { type: ["string"], enum: ["1H", "4H", "1D", "1W", "1M", "1min", "3min", "5min"], required: true } },
+                        { field: "slice_ranges", label: "Slice Ranges", type: "select", options: [{ value: "", text: "Select timeframe..." }, "1H", "4H", "1D", "1W", "1M"], ajv: { type: ["string"], enum: ["1H", "4H", "1D", "1W", "1M"] } },
+                        { field: "date", type: "date", range: true, ajv: { type: "object", properties: { from: { type: "string" }, to: { type: "string" }, required: true } } }
+                    ]
+                },
+                template:
+                    `
+            <button type="button" data-bs-toggle="modal" data-bs-target="#data_settings_modal" class="btn btn-outline-secondary" >Data Settings</button>
+            <div class="modal" id="data_settings_modal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Data Settings :</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" id="data_settings_form">
+                        <form-builder config={{fields}} global_variable="{{global_variable}}" />
+                    </div>
+                    </div>
+                </div>
+            </div>
+            `,
+                onrender: function () {
+                    let modal = new bootstrap.Modal('#data_settings_modal', {})
+                    this.set("modal", modal)
+                }
+            })
+            window.configRactive = new Ractive({
+                el: "#configSettings",
+                data: {
+                    global_variable: "CONFIG_SETTINGS",
+                    fields: [
+                        { field: "barsClose", label: "Bars", type: "range", tooltip: "Exit trade after this amount of bars", ajv: rangeAJV },
+                        { field: "barsCloseReversal", label: "Minimum Bars", type: "range", tooltip: "Amount of bars to wait until listen to close by reversal trigger", ajv: rangeAJV },
+                        { field: "barsIgnore", label: "Bars Ignore(After Open Order)", type: "range", tooltip: "How much bars ignore after last trade opened", ajv: rangeAJV },
+                        { field: "barsIgnoreClose", label: "Bars Ignore(After Close Order)", type: "range", tooltip: "How much bars ignore after last trade closed?", ajv: rangeAJV },
+                        { field: "profitPercantage", label: "Profit", type: "range", steps: true, ajv: rangeAJV },
+                        { field: "lossPercantage", label: "SL(%)", type: "range", steps: true, ajv: rangeAJV },
+                        { field: "enableSLbyReversal", label: "Enable SL by Reversal?", noLabel: true, type: "checkbox", defaultValue: true, ajv: { type: "boolean" } },
+                        { field: "orderCall", label: "Order Call", type: "select", options: ["Both", "Long Only", "Short Only"], ajv: { type: "string" } },
+                        { field: "enableCCI", label: "Enable CCI?", type: "checkbox", noLabel: true, defaultValue: true, ajv: { type: "boolean" } },
+                        // TODO range
+                        { field: "cciLength", label: "CCI Length", type: "range", ajv: rangeAJV },
+                        { field: "cciValue", label: "CCI Value", type: "range", selected_step: 10, ajv: rangeAJV },
+
+                    ]
+                },
+                template:
+                    `
+            <button type="button" data-bs-toggle="modal" data-bs-target="#config_settings_modal" class="btn btn-outline-secondary" >Config Settings</button>
+            <div class="modal" id="config_settings_modal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Config Settings :</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" id="data_settings_form">
+                        <form-builder config={{fields}} global_variable="{{global_variable}}" />
+                    </div>
+                    </div>
+                </div>
+            </div>
+            `,
+                onrender: function () {
+                    let modal = new bootstrap.Modal('#config_settings_modal', {})
+                    this.set("modal", modal)
+                }
+            })
+            window.debugRactive = new Ractive({
+                el: "#debug",
+                data: { visibleDebug: false },
+                template:
+                    `
+            <button id="debug_btn" class="btn btn-info" data-show="false" on-click="@this.toggleDebug()">Debug {{#if visibleDebug}}ON{{else}}OFF{{/if}}</button>
+            {{#if visibleDebug}}
+                <pre>{{JSON.stringify(debugData,0,4)}}</pre>
+            {{/if}}
+            `,
+                toggleDebug: function () {
+                    this.set("visibleDebug", !this.get("visibleDebug"))
+                },
+                onrender: function () {
+                    this.observe("@global.DATA_SETTINGS @global.CONFIG_SETTINGS", (newVal, oldVal) => {
+                        this.set("debugData", { ...this.get("@global.DATA_SETTINGS"), ...this.get("@global.CONFIG_SETTINGS") })
+                    })
+                }
+            })
+
+
+    window.tableProfit = new Ractive({
+        el: "#table-profit",
+        data: {
+            allParams : {}
+        },
+        template: `
+
+            <table class="table  table-bordered caption-top table-striped align-middle ">  
+                <thead class="table-light">
+                    <tr>
+                        <th>BLA</th>
+                        {{#each allParams[Object.keys(allParams)[0]] }}
+                            <th scope="col">{{@key}}</th>
+                        {{/each}}
+                    </tr>
+                </thead>
+                <tbody>
+                    {{#each allParams}}
+                        <tr>
+                            <td>VALUE </td>
+                            {{#each this}}
+                                <td>  {{#each this }}   <div>  {{@key}} : {{@this.countProfit(this ,  @key)}}  </div> {{/each}}</td>
+                            {{/each}}
+    
+
+                        </tr> 
+                    {{/each}}
+                </tbody>
+            </table>
+
+        `,
+        countProfit : function (arr) {
+            console.log("ARR" , arr)
+            let totalProfit =  0 ;
+             arr.forEach(el=> {totalProfit += el.result.profit} )
+             return totalProfit
+        },
+
+        oncomplete: function () {
+   
+
+
+        }
+
+    })
+
+
+
+
+
+
+        window.resultFull = []
+
+        setTimeout(() => {
+            window.ws.onmessage = (webSocketMessage) => {
+                console.log("MESSAGE", webSocketMessage);
+                if(typeof JSON.parse(webSocketMessage.data) == "object")
+                {
+                    window.resultFull.push(JSON.parse(webSocketMessage.data))
+                }
+                if (typeof JSON.parse(webSocketMessage.data) == "boolean")
+                {
+                    console.log("RESULT_IS_FINISHED" , webSocketMessage.data  )
+
+                    if(JSON.parse(webSocketMessage.data))
+                    {
+                        let totalIndexes = {}
+                        window.resultFull.forEach(el => {
+                            Object.keys(el.allIndexes).forEach(key => {
+                                if (totalIndexes[key]) {
+                                    totalIndexes[key] = { ...totalIndexes[key], ...el.allIndexes[key] }
+                                }
+                                else {
+                                    totalIndexes[key] = { ...el.allIndexes[key] }
+                                }
+
+                            })
+
+
+                        })
+
+                        console.log("TOTAL_INDEXES", totalIndexes)
+
+                        window.tableProfit.set("allParams" , totalIndexes)
+                        
+                    }
+                     
+                }
+               // window.mainRactive.set("loaded", webSocketMessage.data)
+            };
+
+        }, 3000)
+
+
+
+
+
+
+        fetch("/available_dates").then(res => res.json()).then((res) => { window.all_available_dates = res })
+
+
+
+
+        window.DATA_SETTINGS = {}
+        window.CONFIG_SETTINGS = {}
+
+        // CALCULATE CALL
+        let btn_calculate = document.getElementById("btn_calculate")
+
+
+        // !!! don`t need to fill forms --> have default settings obj (for testing)
+        btn_calculate.onclick = (ev) => {
+            let data = {}
+            if (Object.keys(window.DATA_SETTINGS).length >= 3 && window.DATA_SETTINGS.timeframe != "" && Object.keys(window.CONFIG_SETTINGS).length >= 5) {
+                ev.target.disabled = true
+                data = { dataSettings: window.DATA_SETTINGS, configSettings: window.CONFIG_SETTINGS }
+                // window.tableProfit && window.tableProfit.set("fullData", [])
+                // window.tableRanges && window.tableRanges.set("resultFull", [])
+                // window.mainRactive.set("isLoading", true)
+                // window.mainRactive.set("loaded", 0)
+                fetch("/division_calculate",
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(data)
+                    }).then((response) => {
+                        return response.json();
+                    })
+                    .then((data) => {
+       
+ 
+
+
+                    });
+            }
+            else {
+
+                let ractive = new Ractive({
+                    el: "#toast",
+                    template: `
+                            <toast type="error" text="Check settings! " />
+                        `
+                })
+            }
+        }
+
+
+
+ 
+ 
+
+        //initialize tooltips Bootstrap
+        setTimeout(() => {
+            document.querySelectorAll('[data-bs-toggle="tooltip"]')
+                .forEach(tooltip => {
+                    new bootstrap.Tooltip(tooltip)
+                })
+        }, 1000)
+
+
+    </script>
+
+
+
+</body>
+
+</html>

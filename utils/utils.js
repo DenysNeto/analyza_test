@@ -28,10 +28,10 @@ export default {
         currDay = day;
         ranges[0] = [];
         ranges[0].push(el);
-      } else if (currDay < day) {
+      } else if (currDay <= day) {
         currDay = day;
         ranges[ranges.length - 1].push(el);
-      } else {
+      } else if (currDay > day) {
         ranges.push([]);
         ranges[ranges.length - 1].push(el);
         currDay = day;

@@ -69,24 +69,7 @@
                 }
                 }) 
 
-
-                setTimeout(()=>{
-                             window.ws.onmessage = (webSocketMessage) => {
-                        console.log("MESSAGE", webSocketMessage);
-                        window.mainRactive.set("loaded", webSocketMessage.data)
-                    };
-
-                } ,  3000)
-   
-
-
-
-
-
         fetch("/available_dates").then(res=>res.json()).then((res)=>{window.all_available_dates= res})
-
-
-
 
         window.DATA_SETTINGS = {}
         window.CONFIG_SETTINGS = {}
@@ -97,6 +80,19 @@
 
         // !!! don`t need to fill forms --> have default settings obj (for testing)
         btn_calculate.onclick = (ev)=>{
+
+
+            // CONNECT TO SOCKET
+            window.ws.onmessage = (webSocketMessage) => {
+          
+                if(webSocketMessage.data.result)
+                {
+                    console.log("CURR_DATA_RESULT" , webSocketMessage.data.result )
+                }
+                window.mainRactive.set("loaded", webSocketMessage.data)
+            };
+
+
             let data = {}
                 if(Object.keys(window.DATA_SETTINGS).length >= 3 &&  window.DATA_SETTINGS.timeframe !="" && Object.keys(window.CONFIG_SETTINGS).length >= 5){
                     ev.target.disabled = true
@@ -664,6 +660,9 @@ window.tableProfit  = new Ractive({
         }
 
 })
+
+
+
 window.exportRactive = new Ractive({
     el:"#exportSettings",
     data:{
