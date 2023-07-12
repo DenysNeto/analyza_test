@@ -200,28 +200,52 @@
             })
 
 
+    window.tableBestResult = new Ractive({
+
+    })        
+
     window.tableProfit = new Ractive({
         el: "#table-profit",
         data: {
-            allParams : {}
+            allParams : {},
+            keys : ["lossPercantage",
+"profitPercantage",
+"barsClose",
+"barsCloseReversal",
+"barsIgnore",
+"barsIgnoreClose"]
         },
         template: `
+            <button on-click="@this.update('@global')">COUNT</button> 
+            <button on-click="@this.countBestResult()">COUNT BEST RESULT </button>
+            <button type="button" class="btn btn-primary" on-click="@this.openModal(@index)"  data-bs-toggle="modal" data-bs-target="#exampleModal">Order graphs</button>
+
+              <modal-c id="exampleModal" title="Enter Orders">
+                <form>
+                    </form>
+               </modal-c>
+
+            <div id="tableBestResults"> </div>  
 
             <table class="table  table-bordered caption-top table-striped align-middle ">  
                 <thead class="table-light">
                     <tr>
                         <th>BLA</th>
                         {{#each allParams[Object.keys(allParams)[0]] }}
-                            <th scope="col">{{@key}}</th>
+                            <th scope="col">{{@key}} 
+                                <div>Results </div>
+
+                             {{#each @this.countTotalSum(@key , arrayOptionsPerTimeframe, @global ) }}<div > {{@key}} : {{this}} </div>  {{/each}}
+                            </th>
                         {{/each}}
                     </tr>
                 </thead>
                 <tbody>
-                    {{#each allParams}}
+                    {{#each allParams as elOutter}}
                         <tr>
-                            <td>VALUE </td>
+                            <td>  {{#each keys }} <div> {{this}} :  {{elOutter["1H"]["1M"][0].result[this]}} </div>  {{/each}}   </td>
                             {{#each this}}
-                                <td>  {{#each this }}   <div>  {{@key}} : {{@this.countProfit(this ,  @key)}}  </div> {{/each}}</td>
+                                <td>   {{#each this }}   <div>   {{@key}} : {{@this.countProfit(this ,  @key , @keypath)}}  </div> {{/each}}</td>
                             {{/each}}
     
 
@@ -231,14 +255,85 @@
             </table>
 
         `,
-        countProfit : function (arr) {
-            console.log("ARR" , arr)
+        countBestResult : function () {
+
+            
+        },
+        countTotalSum : function (keyTimeframe , arraySumKeys){
+            let obj = {}
+            let bestResult = undefined
+            arraySumKeys.forEach(key=>{
+                console.log("PPP" , keyTimeframe , key ,  this.get(`@global.sumProfit.${keyTimeframe}.${key}`)    )
+                obj[key] =  window[`sumProfit.${keyTimeframe}.${key}`]
+                if(bestResult <  window[`sumProfit.${keyTimeframe}.${key}`] )
+                {
+                    bestResult = window[`sumProfit.${keyTimeframe}.${key}`]
+                }
+                window[`best${keyTimeframe}`] = bestResult
+                 
+            })
+            console.log("OBJ" ,  obj)
+            return obj
+
+            
+
+        },
+        countProfit : function (arr, key, keyPath) {
+            console.log("ARR" , arr , key ,  keyPath)
+
+            let pathArr = keyPath.split(".");
+            let timeframe = pathArr[pathArr.length-2];
+            let path =  "sumProfit." + timeframe + "." + key
+
             let totalProfit =  0 ;
-             arr.forEach(el=> {totalProfit += el.result.profit} )
-             return totalProfit
+            arr.forEach(el=> {totalProfit += el.result.profit} )
+            console.log("PATH" , path ,  `${timeframe}.${key}`)
+            window[path]  = totalProfit + + window[path] || 0
+            if(!window[`${timeframe}.${key}`])
+            {
+                window[`${timeframe}.${key}`] = []
+            }
+
+            let objSettings = {
+                "lossPercantage" : arr[0].result["lossPercantage"],
+                "profitPercantage" : arr[0].result["profitPercantage"],
+                "barsClose" : arr[0].result["barsClose"],
+                "barsCloseReversal" : arr[0].result["barsCloseReversal"],
+                "barsIgnore" : arr[0].result["barsIgnore"],
+                "barsIgnoreClose" : arr[0].result["barsIgnoreClose"]
+            } 
+  
+
+
+            window[`${timeframe}.${key}`].push({ totalProfit  , ...objSettings })
+         
+            //this.set(path, totalProfit + this.get(path) || 0)
+            return totalProfit
+        },
+
+        countBestResult : function () {
+            let timeframe = "1H"
+            let sliceRange = "1W"
+            let bestPercent = "20"
+
+            // take array 
+            // count top 20 percentages
+            // count occurence 
+            // output array 
+
         },
 
         oncomplete: function () {
+            this.observe("allParams" ,  (newValue ,  oldValue)=>{
+                if(newValue)
+                {
+                    let keyFirst = Object.keys(newValue)[0];
+                    let keySecond = Object.keys(newValue[keyFirst])[0];
+                    console.log("GGG" , keyFirst , keySecond  , Object.keys(newValue[keyFirst][keySecond])   )
+                    
+                    this.set("arrayOptionsPerTimeframe" , Object.keys(newValue[keyFirst][keySecond])  )
+                }
+            })
    
 
 

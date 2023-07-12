@@ -36,7 +36,6 @@ function buildResult(
   return calculateProfit(obj);
 }
 
-console.log("WEBWORKER", workerData.alias);
 let result_arr = [];
 let partialResult = {};
 let partialRange = undefined;
@@ -54,11 +53,18 @@ const avaliable_slice_ranges = [
 ];
 // TODO START HERE
 let allIndexes = {};
-workerData.arr.forEach((arr, arrIndex) => {
+for (let arrIndexQQ = 0; arrIndexQQ < workerData.arr.length; arrIndexQQ++) {
+  let arr = workerData.arr[arrIndexQQ];
+  console.log(
+    "AAA",
+    new Date().getTime(),
+    workerData.indexWorker,
+    arrIndexQQ,
+    workerData.arr.length
+  );
   // build array by 50
   let divisions = {};
 
-  console.log("EEEE", arr);
   let keySet = "";
   arr.forEach((el) => (keySet += el.split("_")[1]));
 
@@ -95,9 +101,8 @@ workerData.arr.forEach((arr, arrIndex) => {
   });
 
   // DIVIDED ARRAY
-  console.log("AAAAA");
+
   Object.entries(divisions).forEach(([key, value], i) => {
-    console.log("DIVISION", key, value.length);
     partialResult[key] = [];
     value.forEach((el, index) => {
       if (!partialResult[key]) partialResult[key] = [];
@@ -163,7 +168,7 @@ workerData.arr.forEach((arr, arrIndex) => {
       workerData.enableSLbyReversal
     )
   );
-});
+}
 
 let finishTime = new Date().getTime();
 let deltaSeconds = (finishTime - startTime) / 100;

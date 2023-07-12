@@ -177,7 +177,7 @@ app.post("/division_calculate", function (req, res) {
   // PREPARE CASES
   let counter = 0;
   let temp = Math.floor(arrParams.length / 10);
-  let workerNumber = temp < 200 ? 200 : temp;
+  let workerNumber = temp < 200 ? 200 : 200; //temp;
   let workerCounter = 0;
   let arrWorkers = [];
   arrParams.forEach((el, index) => {
@@ -205,11 +205,12 @@ app.post("/division_calculate", function (req, res) {
       resultsPartials[symbol_bars] = [];
     }
 
-    console.log("CONFIG_SETTINGS", settings.dataSettings.slice_ranges);
+    console.log("CONFIG_SETTINGS", arrWorkers.length);
 
     arrWorkers.forEach((arr, arrIndex) => {
       let worker = new Worker("./webworker_division_calculate.js", {
         workerData: {
+          indexWorker: arrIndex,
           arr,
           alias,
           configSettings,
@@ -219,6 +220,10 @@ app.post("/division_calculate", function (req, res) {
           enableSLbyReversal: settings.configSettings.enableSLbyReversal,
           disabledCriterias,
         },
+      });
+
+      worker.on("error", (err) => {
+        console.log("ERROR_IN_WORKER", err);
       });
 
       worker.once("message", (result) => {
@@ -232,6 +237,10 @@ app.post("/division_calculate", function (req, res) {
         let loadedPeercentages = (counter / totalWorkers) * 100;
 
         sendWebsocket(WEBSOCKET, loadedPeercentages);
+
+        worker.terminate(() => {
+          console.log("WORKER_TERMINATED");
+        });
 
         sendWebsocket(WEBSOCKET, JSON.stringify(result));
         sendWebsocket(
