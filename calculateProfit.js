@@ -651,7 +651,21 @@ export default function calculateProfit(config) {
   let profit = 0;
   let unclosed_arr = [];
   let closed = { unclosed: 0 };
-  arrayStatistics.forEach((el) => {
+
+  // {
+  //   ...arrayStatistics[elIndex],
+  //   timeExit: time[bar_index],
+  //   signalExit: "SL",
+  //   exitPrice: SL_price,
+  //   profit: countTakeProfitPerTrade(
+  //     entryPriceLong[index],
+  //     SL_price,
+  //     order
+  //   ),
+  //   barIndexExit: bar_index,
+  // };
+
+  arrayStatistics.forEach((el, index) => {
     if (el.profit && el.profit != null) {
       profit += el.profit;
       if (!closed[el.signalExit]) {
@@ -659,8 +673,26 @@ export default function calculateProfit(config) {
       }
       closed[el.signalExit] += 1;
     } else {
+      // FOR DEBUG . IF ORDER UNCLOSED
       unclosed_arr.push(el);
       closed.unclosed += 1;
+      arrayStatistics[index] = {
+        ...el,
+        profit: countTakeProfitPerTrade(
+          el.initPrice,
+          close[close.length - 1],
+          order
+        ),
+        signalExit: "Modal turned off",
+        timeExit: time[time.length - 1],
+        priceExit: close[close.length - 1],
+        barIndexExit: bars_data.length,
+      };
+      profit += arrayStatistics[index].profit;
+      if (!closed[arrayStatistics[index].signalExit]) {
+        closed[arrayStatistics[index].signalExit] = 0;
+      }
+      closed[arrayStatistics[index].signalExit] += 1;
     }
   });
 
@@ -678,7 +710,7 @@ export default function calculateProfit(config) {
     finishDate: new Date(+(time[time.length - 1] + "000")).toLocaleString(),
     instrumentDelta: instrumentDelta,
     orders: arrayStatistics.length,
-    arrayStatistics: arrayStatistics,
+    // arrayStatistics: arrayStatistics,
     bars: bars_data.length,
     ...config,
   };

@@ -1,6 +1,6 @@
 // import { parentPort, workerData } from "worker_threads";
 import { Worker, workerData, parentPort } from "worker_threads";
-
+import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import bodyParser from "body-parser";
@@ -116,21 +116,12 @@ app.post("/division_calculate", function (req, res) {
         }
       });
     }
-
-    // bars_data = bars_data.reverse();
-    //NEED TO HANDLE ERROR IF BARS_DATA IS EMPTY
     if (bars_data.length > 0) {
       allSymbolsBars[tf] = bars_data;
     }
   });
 
   let configSettings = {};
-  // let configSettings = {
-  //   barsClose: settings.configSettings.barsClose,
-  //   barsCloseReversal: settings.configSettings.barsCloseReversal,
-  //   barsIgnore: settings.configSettings.barsIgnore,
-  //   profitPercantage: settings.configSettings.profitPercantage,
-  // };
   let disabledCriterias = [];
 
   let addParametr = (fullObj, key) => {
@@ -174,105 +165,186 @@ app.post("/division_calculate", function (req, res) {
   let results = {};
   let resultsPartials = {};
 
-  // PREPARE CASES
-  let counter = 0;
-  let temp = Math.floor(arrParams.length / 10);
-  let workerNumber = temp < 200 ? 200 : 200; //temp;
-  let workerCounter = 0;
-  let arrWorkers = [];
-  arrParams.forEach((el, index) => {
-    if (index % workerNumber == 0) {
-      arrWorkers.push(
-        arrParams.slice(workerCounter, workerCounter + workerNumber)
-      );
-      workerCounter += workerNumber;
+  //Workers INIT
+  const data_step = 2000;
+  var Workers = {
+    total:
+      arrParams.length < data_step
+        ? 1
+        : Math.ceil(arrParams.length / data_step), // number of Workers to run arrParams
+    sliced_params: [], // array of arrParams data splitted for all Workers
+    opened: {}, // all opened Workers splitted by timeframes
+    closed: {}, // all opened Workers splitted by timeframes
+  };
+
+  console.log("Total workers : ", Workers.total);
+
+  let loops_count = 0;
+  let workers_timeframe_count = 0;
+  let worker_in_loop = false;
+
+  //worker queue to initialize
+  function initWorkers(current_tf_index) {
+    if (current_tf_index + 1 > Object.keys(allSymbolsBars).length) {
+      console.log("!!! ALL WORKERS FINISHED !!!");
+      return;
     }
-  });
-
-  console.log("COUNT", arrWorkers.length);
-  console.time("Total_calc");
-
-  Object.keys(allSymbolsBars).forEach((tf, index) => {
-    console.log("ALL_SYMBOLS", symbol_bars);
-
-    let startPartNumber = index * arrParams.length;
-
-    if (!results[symbol_bars]) {
-      results[symbol_bars] = [];
+    let worker_timeframe = Object.keys(allSymbolsBars)[current_tf_index];
+    if (!Workers.opened[worker_timeframe]) {
+      Workers.opened[worker_timeframe] = 0;
+    }
+    if (!Workers.closed[worker_timeframe]) {
+      Workers.closed[worker_timeframe] = 0;
+      // workers_result = {}
     }
 
-    if (!resultsPartials[symbol_bars]) {
-      resultsPartials[symbol_bars] = [];
-    }
+    openWorkers(5, worker_timeframe, current_tf_index);
+  }
+  //write worker result to file
+  function writeWorkers(result, worker_timeframe, file_name) {
+    if (Object.keys(result).length == 0) return;
 
-    console.log("CONFIG_SETTINGS", arrWorkers.length);
+    try {
+      let folder_path = __dirname + `/calculations`;
+      let folder_path_timeframe =
+        __dirname + `/calculations/${worker_timeframe}`;
+      let folder_path_years =
+        folder_path_timeframe +
+        `/${new Date(settings.dataSettings.date.from).getFullYear()}_${new Date(
+          settings.dataSettings.date.to
+        ).getFullYear()}`;
 
-    arrWorkers.forEach((arr, arrIndex) => {
-      let worker = new Worker("./webworker_division_calculate.js", {
-        workerData: {
-          indexWorker: arrIndex,
-          arr,
-          alias,
-          configSettings,
-          symbol_bars,
-          symbol_bars_data: allSymbolsBars[tf],
-          orderCall: settings.configSettings.orderCall,
-          enableSLbyReversal: settings.configSettings.enableSLbyReversal,
-          disabledCriterias,
-        },
-      });
+      if (!fs.existsSync(folder_path)) {
+        fs.mkdirSync(folder_path);
+      }
+      if (!fs.existsSync(folder_path_timeframe)) {
+        fs.mkdirSync(folder_path_timeframe);
+      }
+      if (!fs.existsSync(folder_path_years)) {
+        fs.mkdirSync(folder_path_years);
+      }
 
-      worker.on("error", (err) => {
-        console.log("ERROR_IN_WORKER", err);
-      });
-
-      worker.once("message", (result) => {
-        let totalWorkers =
-          arrWorkers.length * Object.keys(allSymbolsBars).length;
-
-        //console.log("RESULT_PERC", loadedPeercentages);
-
-        counter++;
-
-        let loadedPeercentages = (counter / totalWorkers) * 100;
-
-        sendWebsocket(WEBSOCKET, loadedPeercentages);
-
-        worker.terminate(() => {
-          console.log("WORKER_TERMINATED");
-        });
-
-        sendWebsocket(WEBSOCKET, JSON.stringify(result));
-        sendWebsocket(
-          WEBSOCKET,
-          (
-            arrWorkers.length * Object.keys(allSymbolsBars).length <=
-            counter
-          ).toString()
-        );
-
-        results[symbol_bars].push(result.result);
-        resultsPartials[symbol_bars] = result.partialResult;
-        // resultsPartials[symbol_bars].push(result.partialResult);
-        console.log(
-          "TOTAL WORKERS",
-          arrWorkers.length * Object.keys(allSymbolsBars).length,
-          counter,
-          result.deltaSeconds
-        );
-
-        if (arrWorkers.length * Object.keys(allSymbolsBars).length <= counter) {
-          // setTimeout(()=>{})
-          res.json({});
-
-          console.timeEnd("Total_calc");
-
-          //       console.timeEnd(`CALC_${symbol_bars}`);
+      Object.keys(result).forEach((result_sr) => {
+        let folder_path_slice_range = folder_path_years + `/${result_sr}`;
+        let folder_path_symbol = folder_path_slice_range + `/${symbol_bars}`;
+        if (!fs.existsSync(folder_path_slice_range)) {
+          fs.mkdirSync(folder_path_slice_range);
         }
-        console.log(`Worker : `, counter);
+        if (!fs.existsSync(folder_path_symbol)) {
+          fs.mkdirSync(folder_path_symbol);
+        }
+        let file_index = 0;
+        fs.readdir(folder_path_symbol, (error, files) => {
+          if (error) {
+            console.log("Error on write File :::", error);
+          } else {
+            file_index = files.length + 1;
+            fs.writeFile(
+              file_name
+                ? folder_path_symbol + `/${file_name}_${file_index}`
+                : folder_path_symbol + `/${file_index}`,
+              JSON.stringify(result[result_sr]),
+              (res) => {}
+            );
+          }
+        });
       });
-    });
-  });
+    } catch (err) {
+      console.log("ERROR_WRITE_FILE", err);
+    }
+  }
+
+  //initialize worker + event open/close
+  function openWorkers(count, worker_timeframe, worker_timeframe_index) {
+    let last_open = Workers.opened[worker_timeframe];
+    let last_close = Workers.closed[worker_timeframe];
+    let initial_close = last_close;
+    let workers_result = {};
+
+    console.time(
+      `(${worker_timeframe}) Worker calculation (${initial_close} - ${
+        initial_close + count
+      })`
+    );
+
+    let workers_to_open = Workers.sliced_params.slice(
+      last_close,
+      last_close + count
+    );
+    if (workers_to_open.length) {
+      workers_to_open.forEach((params_data, workerIndex) => {
+        let worker = new Worker("./webworker_division_calculate.js", {
+          workerData: {
+            arr: params_data,
+            alias,
+            configSettings,
+            symbol_bars,
+            symbol_bars_data: allSymbolsBars[worker_timeframe], // allSymbolsBars[tf].slice(0, 160), //allSymbolsBars[tf]
+            orderCall: settings.configSettings.orderCall,
+            enableSLbyReversal: settings.configSettings.enableSLbyReversal,
+            disabledCriterias,
+          },
+        });
+        worker.once("message", (result) => {
+          //   workers_result = { ...workers_result, ...result };
+          writeWorkers(result, worker_timeframe);
+          Object.keys(result).forEach((key) => {
+            console.log("WORKER RESULT =>", key, ":", result[key].length);
+          });
+        });
+        worker.on("online", () => {
+          last_open++;
+          console.log("worker opened:" + worker_timeframe, last_open);
+        });
+        worker.on("exit", () => {
+          last_close++;
+
+          console.log("worker closed:" + worker_timeframe, last_close);
+
+          if (
+            last_close == initial_close + count &&
+            Workers.total > last_close
+          ) {
+            console.timeEnd(
+              `(${worker_timeframe}) Worker calculation (${initial_close} - ${
+                initial_close + count
+              })`
+            );
+            Workers.closed[worker_timeframe] = last_close;
+            Workers.opened[worker_timeframe] = last_open;
+
+            openWorkers(count, worker_timeframe, worker_timeframe_index);
+          }
+          if (last_close == Workers.total) {
+            setTimeout(() => {
+              console.timeEnd(
+                `(${worker_timeframe}) Worker calculation (${initial_close} - ${
+                  initial_close + count
+                })`
+              );
+              console.log(`All workers (${worker_timeframe}) finished`);
+              Workers.closed[worker_timeframe] = last_close;
+              Workers.opened[worker_timeframe] = last_open;
+              //   writeWorkers(workers_result, worker_timeframe);
+              initWorkers(worker_timeframe_index + 1);
+            }, 100);
+          }
+        });
+      });
+    }
+  }
+  //set data for Workers (splitted for each)
+  do {
+    let from_i = loops_count * data_step;
+    let to_i = from_i + data_step;
+    loops_count++;
+    if (from_i >= arrParams.length) break;
+
+    Workers.sliced_params.push(arrParams.slice(from_i, to_i));
+  } while (true);
+
+  //Start workers
+  initWorkers(0);
 });
 
 app.post("/calculate", function (req, res) {
@@ -498,7 +570,7 @@ app.post("/calculate", function (req, res) {
         results[symbol_bars].push(result.result);
         resultsPartials[symbol_bars].push(result.partialResult);
         console.log(
-          "TOTAL WORKERS",
+          "TOTAL Workers",
           arrWorkers.length * Object.keys(allSymbolsBars).length,
           counter,
           result.deltaSeconds
@@ -681,7 +753,7 @@ function buildParams(params) {
   //   // call webworker  and set varaibles
   // });
 
-  // ADD WEBWORKERS
+  // ADD WEBWorkers
 
   return { resultModified, alias };
 }

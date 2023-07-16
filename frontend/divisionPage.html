@@ -35,6 +35,7 @@
     <div id="debug"></div>
     <div id="main-output">
         <div id="table-range" style="margin-bottom:1rem"></div>
+        <div id="table-best"></div>
         <div id="table-profit"></div>
     </div>
 
@@ -81,6 +82,7 @@
         
                 <!-- TABLES -->
                     <div id="table-range" style="margin-bottom:1rem" ></div>
+                    <div id="table-best"></div>
                     <div id="table-profit"></div>
                   
                 `,
@@ -184,11 +186,11 @@
                 data: { visibleDebug: false },
                 template:
                     `
-            <button id="debug_btn" class="btn btn-info" data-show="false" on-click="@this.toggleDebug()">Debug {{#if visibleDebug}}ON{{else}}OFF{{/if}}</button>
-            {{#if visibleDebug}}
-                <pre>{{JSON.stringify(debugData,0,4)}}</pre>
-            {{/if}}
-            `,
+                <button id="debug_btn" class="btn btn-info" data-show="false" on-click="@this.toggleDebug()">Debug {{#if visibleDebug}}ON{{else}}OFF{{/if}}</button>
+                {{#if visibleDebug}}
+                    <pre>{{JSON.stringify(debugData,0,4)}}</pre>
+                {{/if}}
+                `,
                 toggleDebug: function () {
                     this.set("visibleDebug", !this.get("visibleDebug"))
                 },
@@ -201,32 +203,159 @@
 
 
     window.tableBestResult = new Ractive({
+        el:"#table-best",
+        data:{
+            allBestResults:[],
+            top_results_fields:[
+                //{field:"timeframe", type: "select", options:DATA_SETTINGS.timeframes ?[ ...DATA_SETTINGS.timeframes] : [], ajv:{type:["string"],enum:["1H","4H","1D","1W","1M","1min","3min","5min"],required:true}},
+                {field: "slice_range", label:"Slice range" , type: "select", options: [{ value: "", text: "Select timeframe..." }, "1H", "4H", "1D", "1W", "1M"], ajv: { type: ["string"], enum: ["1H", "4H", "1D", "1W" , "1M"]} },
+                {field: "top_percent",label:"Top percent", type: "select", options:[{value:"",text:"Select percentage"},...Array.from({length: 10}, (_, i) =>{return {value:String((i + 1)*10),text:(i + 1)*10 + "%"}})] }
+            ],
+            topResults_variable:"TOP_RESULTS_SETTINGS",
+            keys : ["lossPercantage",
+                    "profitPercantage",
+                    "barsClose",
+                    "barsCloseReversal",
+                    "barsIgnore",
+                    "barsIgnoreClose"]
+        },
+        template:
+        `
+
+                <button    data-bs-toggle="modal" data-bs-target="#topResultsForm"   >COUNT BEST RESULT </button>
+                <modal-c 
+                    id="topResultsForm" 
+                    title="Sort by" 
+                    btn_accept_label="Sort table" 
+                    btn_accept_click={{@this.buildTable}} 
+                    btn_close_label="Reset"  
+                >
+                    <form-builder noButtons=true config={{top_results_fields}} global_variable="{{topResults_variable}}" ></form-builder>
+                </modal-c> 
+    {{#if isReady}}            
+                <div>
+                    {{#if Object.keys(occurence).length>0}}
+                        Occurence ::: 
+                        {{#each keys as key}}
+                        <div>
+                            {{key}} :{{#each @this.maximizePercentage(occurence[key])}} {{this.key}} - {{this.valuePercentage}}% ,  {{/each}}
+                        </div>
+                        {{/each}}
+                    {{/if}}
+                </div>
+                {{#if allBestResults.length>0}}
+                    <table class="table  table-bordered caption-top table-striped align-middle ">  
+                        <thead class="table-light">
+                            <tr>
+                                <th>Parameters</th>
+                                <th> 
+                                    <div>Timeframe: {{current_tf}}</div>
+                                    <div>Range: {{current_sr}}</div>
+                                    
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{#each allBestResults as bestEl}}
+                                <tr>
+                                        <td>{{#each keys as key}}<div> {{key}} : {{bestEl[key]}}</div> {{/each}} </td>
+                                        <td>Profit: {{bestEl['totalProfit']}} </td>
+                                </tr> 
+                            {{/each}}
+                        </tbody>
+                    </table>
+                {{/if}}
+            {{/if}}
+        `,
+        maximizePercentage : function (array) {
+                    array = array.sort((a, b) => a.valuePercentage - b.valuePercentage).reverse()
+                    return array
+
+        },
+        buildTable:function(){
+            
+            let formData = window[this.get("topResults_variable")]
+            this.set("current_tf",formData.timeframe)
+            this.set("current_sr",formData.slice_range)
+
+            let data = window[`${formData.timeframe}.${formData.slice_range}`]
+            let sorted_profit =window.UtilsManager.maximizeByField([...data] , "totalProfit" ,  "down");
+            let bestPercentIndex = Math.floor(sorted_profit.length*(+formData.top_percent /100))
+            let sorted_arr = sorted_profit.slice(0, bestPercentIndex)
+
+            let arrayBarsClose = sorted_arr.map(el => el.barsClose )
+            let arrayBarsCloseReversal = sorted_arr.map(el =>el.barsCloseReversal)
+            let arrayBarsIgnore = sorted_arr.map(el => el.barsIgnore )
+            let arrayBarsIgnoreClose = sorted_arr.map(el =>  el.barsIgnoreClose)
+            let arrayProfitPercentage =sorted_arr.map(el =>el.profitPercantage)
+            let arrayLossPercentage =sorted_arr.map(el =>el.lossPercantage)
+
+
+            let setArrayBarsClose = Array.from(new Set(arrayBarsClose));
+            let setArrayBarsCloseReversal = Array.from(new Set(arrayBarsCloseReversal));
+            let setArrayBarsIgnore = Array.from(new Set(arrayBarsIgnore));
+            let setArrayBarsIgnoreClose = Array.from(new Set(arrayBarsIgnoreClose));
+            let setArrayProfitPercentage = Array.from(new Set(arrayProfitPercentage));
+            let setArrayLossPercentage = Array.from(new Set(arrayLossPercentage));
+
+            let resultArrayBarsClose = setArrayBarsClose.map(el => { return { value: UtilsManager.getOccurrence(arrayBarsClose, el), key: el, valuePercentage: Math.floor(UtilsManager.getOccurrence(arrayBarsClose, el) / arrayBarsClose.length * 100) } })
+            let resultArrayBarsCloseReversal = setArrayBarsCloseReversal.map(el => { return { value: UtilsManager.getOccurrence(arrayBarsCloseReversal, el), key: el, valuePercentage: Math.floor(UtilsManager.getOccurrence(arrayBarsCloseReversal, el) / arrayBarsCloseReversal.length * 100) } })
+            let resultArrayBarsIgnore = setArrayBarsIgnore.map(el => { return { value: UtilsManager.getOccurrence(arrayBarsIgnore, el), key: el, valuePercentage: Math.floor(UtilsManager.getOccurrence(arrayBarsIgnore, el) / arrayBarsIgnore.length * 100) } })
+            let resultArrayBarsIgnoreClose = setArrayBarsIgnoreClose.map(el => { return { value: UtilsManager.getOccurrence(arrayBarsIgnoreClose, el), key: el, valuePercentage: Math.floor(UtilsManager.getOccurrence(arrayBarsIgnoreClose, el) / arrayBarsIgnoreClose.length * 100) } })
+            let resultArrayProfitPercentage = setArrayProfitPercentage.map(el => { return { value: UtilsManager.getOccurrence(arrayProfitPercentage, el), key: el, valuePercentage: Math.floor(UtilsManager.getOccurrence(arrayProfitPercentage, el) / arrayProfitPercentage.length * 100) } })
+            let resultArrayLossPercentage = setArrayProfitPercentage.map(el => { return { value: UtilsManager.getOccurrence(arrayLossPercentage, el), key: el, valuePercentage: Math.floor(UtilsManager.getOccurrence(arrayLossPercentage, el) / arrayLossPercentage.length * 100) } })
+            let occurence = {
+                    lossPercantage :resultArrayLossPercentage ,
+                    profitPercantage : resultArrayProfitPercentage,
+                    barsClose : resultArrayBarsClose,
+                    barsCloseReversal: resultArrayBarsCloseReversal,
+                    barsIgnore : resultArrayBarsIgnore,
+                    barsIgnoreClose : resultArrayBarsIgnoreClose
+            }
+
+
+            console.log("OCCURENCE", occurence)
+            this.set("occurence", occurence)
+            this.set("allBestResults", sorted_arr)
+            console.log("ALL_BEST", sorted_arr)
+
+        }
+
+      
 
     })        
+
+
+
+
 
     window.tableProfit = new Ractive({
         el: "#table-profit",
         data: {
+            top_results_fields:[
+                //{field:"timeframe", type: "select", options:DATA_SETTINGS.timeframes ?[ ...DATA_SETTINGS.timeframes] : [], ajv:{type:["string"],enum:["1H","4H","1D","1W","1M","1min","3min","5min"],required:true}},
+                {field: "slice_range", label:"Slice range" , type: "select", options: [{ value: "", text: "Select timeframe..." }, "1H", "4H", "1D", "1W", "1M"], ajv: { type: ["string"], enum: ["1H", "4H", "1D", "1W" , "1M"]} },
+                {field: "top_percent",label:"Top percent", type: "select", options:[{value:"",text:"Select percentage"},...Array.from({length: 10}, (_, i) =>{return {value:String((i + 1)*10),text:(i + 1)*10 + "%"}})] }
+            ],
+            topResults_variable:"TOP_RESULTS_SETTINGS",
             allParams : {},
             keys : ["lossPercantage",
-"profitPercantage",
-"barsClose",
-"barsCloseReversal",
-"barsIgnore",
-"barsIgnoreClose"]
+                    "profitPercantage",
+                    "barsClose",
+                    "barsCloseReversal",
+                    "barsIgnore",
+                    "barsIgnoreClose"]
         },
         template: `
-            <button on-click="@this.update('@global')">COUNT</button> 
-            <button on-click="@this.countBestResult()">COUNT BEST RESULT </button>
-            <button type="button" class="btn btn-primary" on-click="@this.openModal(@index)"  data-bs-toggle="modal" data-bs-target="#exampleModal">Order graphs</button>
 
+        <button on-click="@this.update('@global')">COUNT</button> 
+
+            <button type="button" class="btn btn-primary" on-click="@this.openModal(@index)"  data-bs-toggle="modal" data-bs-target="#exampleModal">Order graphs</button>
               <modal-c id="exampleModal" title="Enter Orders">
                 <form>
                     </form>
                </modal-c>
-
             <div id="tableBestResults"> </div>  
-
             <table class="table  table-bordered caption-top table-striped align-middle ">  
                 <thead class="table-light">
                     <tr>
@@ -235,7 +364,7 @@
                             <th scope="col">{{@key}} 
                                 <div>Results </div>
 
-                             {{#each @this.countTotalSum(@key , arrayOptionsPerTimeframe, @global ) }}<div > {{@key}} : {{this}} </div>  {{/each}}
+                                    {{#each @this.countTotalSum(@key , arrayOptionsPerTimeframe, @global ) }}<div > {{@key}} : {{this}} </div>  {{/each}}
                             </th>
                         {{/each}}
                     </tr>
@@ -255,6 +384,45 @@
             </table>
 
         `,
+        sortTable:function(){
+            console.log("SORTABLE",this.get())
+
+            let formData = window[this.get("topResults_variable")]
+            let data = window[`${formData.timeframe}.${formData.slice_range}`]
+
+            let sorted_profit =window.UtilsManager.maximizeByField([...data] , "totalProfit" ,  "down");
+
+            let bestPercentIndex = Math.floor(sorted_profit.length*(+formData.top_percent /100))
+            let sorted_arr = sorted_profit.slice(0, bestPercentIndex)
+
+            
+
+
+            // let key_arr = []
+            // sorted_arr.forEach((el,index)=>{
+            //     key_el = ""
+            //     Object.keys(el).forEach((key)=>{
+            //         if(this.get("keys").includes(key)){
+            //             key_el += `${el[key]}`
+            //         }
+            //     })
+            //     key_arr.push(key_el)
+
+            // })
+
+            // let new_allParams = {}
+            // key_arr.forEach((key)=>{
+            //     new_allParams[key] = this.get("allParams")[key]
+            // })
+
+            this.set("allParams", new_allParams)
+            console.log("dataToSort",sorted_arr,key_arr,new_allParams )
+        },
+        unSortTable:function(){
+            this.set("allParams", this.get("initial_allParams"))
+        },
+        
+        
         countBestResult : function () {
 
             
@@ -324,7 +492,14 @@
         },
 
         oncomplete: function () {
+            window.tableProfitInst = this
+
             this.observe("allParams" ,  (newValue ,  oldValue)=>{
+                if(!oldValue || Object.keys(oldValue).length == 0){
+                    this.set("initial_allParams", newValue)
+                }
+
+
                 if(newValue)
                 {
                     let keyFirst = Object.keys(newValue)[0];
@@ -333,21 +508,14 @@
                     
                     this.set("arrayOptionsPerTimeframe" , Object.keys(newValue[keyFirst][keySecond])  )
                 }
-            })
+            },{init:false})
    
 
 
         }
 
     })
-
-
-
-
-
-
         window.resultFull = []
-
         setTimeout(() => {
             window.ws.onmessage = (webSocketMessage) => {
                 console.log("MESSAGE", webSocketMessage);
@@ -372,14 +540,12 @@
                                 }
 
                             })
-
-
                         })
 
                         console.log("TOTAL_INDEXES", totalIndexes)
-
                         window.tableProfit.set("allParams" , totalIndexes)
-                        
+                        window.tableBestResult.unshift("top_results_fields" ,  {field:"timeframe", type: "select", options:DATA_SETTINGS.timeframes ?[ ...DATA_SETTINGS.timeframes] : [], ajv:{type:["string"],enum:["1H","4H","1D","1W","1M","1min","3min","5min"],required:true}}) 
+                        window.tableBestResult.set("isReady", true)
                     }
                      
                 }

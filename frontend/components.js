@@ -50,10 +50,12 @@ Ractive.components["form-builder"] = Ractive.extend({
                   </div>
               {{/each}}
   
+              {{#if !noButtons}}
               <div style="display:flex">
                   <button type="button" class="btn btn-outline-danger" style="width:20%;margin-right: 1%;" id="settings_clear" on-click="@this.clearForm(@node)">Clear</button>
                   <button type="button" class="btn btn-primary" style="width:80%" id="settings_submit" on-click="@this.submitForm(@node)">Submit</button>
               </div>
+              {{/if}}
           </form>
       `,
   submitForm: function (node) {
@@ -715,12 +717,22 @@ Ractive.components["modal-c"] = Ractive.extend({
         {{yield}}
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-        <button type="button" class="btn btn-primary">Save changes</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" on-click="@this.onCloseDialog()">{{ btn_close_label || 'Close'}}</button>
+        <button type="button" class="btn btn-primary" on-click="@this.onAcceptDialog()">{{btn_accept_label || "Save" }}</button>
       </div>
     </div>
   </div>
 </div>
   `,
+  onCloseDialog() {
+    if (this.get("btn_close_click")) {
+      this.get("btn_close_click")();
+    }
+  },
+  onAcceptDialog() {
+    if (this.get("btn_accept_click")) {
+      this.get("btn_accept_click")();
+    }
+  },
   data: { title: "Modal Title", id: "modalId" },
 });
