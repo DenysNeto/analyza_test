@@ -189,7 +189,7 @@ let settings = {
     isAdvancedTradingHours: false,
     symbol: "ES",
     slice_ranges: "",
-    timeframes: ["1D", "1W"],
+    timeframes: ["1W"],
     date: {
       from: "2020-01-01",
       to: "2021-01-01",
@@ -375,7 +375,13 @@ function initWorkers(Workers, current_tf_index, current_file_index) {
     // workers_result = {}
   }
 
-  openWorkers(Workers, 5, worker_timeframe, current_tf_index);
+  openWorkers(
+    Workers,
+    5,
+    worker_timeframe,
+    current_tf_index,
+    current_file_index
+  );
 }
 //write worker result to file
 function writeWorkers(result, worker_timeframe, file_name) {
@@ -431,7 +437,13 @@ function writeWorkers(result, worker_timeframe, file_name) {
 }
 
 //initialize worker + event open/close
-function openWorkers(Workers, count, worker_timeframe, worker_timeframe_index) {
+function openWorkers(
+  Workers,
+  count,
+  worker_timeframe,
+  worker_timeframe_index,
+  current_file_index
+) {
   let last_open = Workers.opened[worker_timeframe];
   let last_close = Workers.closed[worker_timeframe];
   let initial_close = last_close;
@@ -486,7 +498,13 @@ function openWorkers(Workers, count, worker_timeframe, worker_timeframe_index) {
           Workers.closed[worker_timeframe] = last_close;
           Workers.opened[worker_timeframe] = last_open;
 
-          openWorkers(Workers, count, worker_timeframe, worker_timeframe_index);
+          openWorkers(
+            Workers,
+            count,
+            worker_timeframe,
+            worker_timeframe_index,
+            current_file_index
+          );
         }
         if (last_close == Workers.total) {
           setTimeout(() => {
@@ -499,7 +517,11 @@ function openWorkers(Workers, count, worker_timeframe, worker_timeframe_index) {
             Workers.closed[worker_timeframe] = last_close;
             Workers.opened[worker_timeframe] = last_open;
             //   writeWorkers(workers_result, worker_timeframe);
-            initWorkers(Workers, worker_timeframe_index + 1);
+            initWorkers(
+              Workers,
+              worker_timeframe_index + 1,
+              current_file_index
+            );
           }, 100);
         }
       });
@@ -517,6 +539,7 @@ function runWorkerFromFile(data_index) {
         "!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ALL_FILES_READED !!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
       );
     } else {
+      console.log("ALL_FILES", files, data_index);
       fs.readFile(
         __dirname + "/files_to_calculate" + `/${files[data_index]}`,
         "utf8",
@@ -527,7 +550,7 @@ function runWorkerFromFile(data_index) {
           console.log("sss", JSON.parse(String(data)).length);
           files_arr_to_calculate.push(JSON.parse(String(data)));
           let arrParamsWorker = JSON.parse(String(data));
-          runWorkers(arrParamsWorker);
+          runWorkers(arrParamsWorker, data_index);
         }
       );
     }
